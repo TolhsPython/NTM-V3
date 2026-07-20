@@ -1,0 +1,1420 @@
+#!/usr/bin/env python3
+"""Network Traffic Monitor - Global Map Visualization"""
+
+import os
+import sys
+import json
+import re
+import csv
+import time
+import socket
+import subprocess
+import threading
+from collections import deque, Counter
+from datetime import datetime, timedelta
+
+import requests
+import psutil
+import webview
+
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+CACHE_FILE = os.path.join(BASE_DIR, "geoip_cache.json")
+SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
+DATA_DIR = os.path.join(BASE_DIR, "data")
+RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
+REPORTS_DIR = os.path.join(BASE_DIR, "reports")
+
+for d in [DATA_DIR, RECORDINGS_DIR, REPORTS_DIR]:
+    os.makedirs(d, exist_ok=True)
+
+DEFAULT_SETTINGS = {
+    "line_color": "#c678dd",
+    "line_width": 2,
+    "dot_size": 6,
+    "dot_color": "#61afef",
+    "home_dot_color": "#98c379",
+    "map_theme": "dark",
+    "show_labels": False,
+    "alert_dl_threshold": 0,
+    "alert_ul_threshold": 0,
+    "alert_cooldown": 30,
+    "notifications": True,
+    "record_sessions": False,
+    "flow_animation": True,
+    "connection_cards": False,
+    "service_icons": True,
+    "map_clustering": False,
+    "trail_effects": False,
+    "mini_pie_charts": True,
+    "latency_zones": True,
+}
+
+PORT_SERVICE_MAP = {
+    20: "FTP Data", 21: "FTP", 22: "SSH", 23: "Telnet", 25: "SMTP",
+    53: "DNS", 80: "HTTP", 110: "POP3", 143: "IMAP", 443: "HTTPS",
+    445: "SMB", 993: "IMAPS", 995: "POP3S", 1433: "MSSQL", 1521: "Oracle",
+    3306: "MySQL", 3389: "RDP", 5432: "PostgreSQL", 5900: "VNC",
+    6379: "Redis", 8080: "HTTP-Alt", 8443: "HTTPS-Alt", 27017: "MongoDB",
+    6881: "BitTorrent", 6889: "BitTorrent", 16881: "BitTorrent",
+    6667: "IRC", 5222: "XMPP", 5228: "FCM", 5269: "XMPP-S2S",
+    5672: "AMQP", 8883: "MQTTS", 9001: "Tor", 9050: "Tor",
+    1935: "RTMP", 554: "RTSP", 1900: "SSDP", 5353: "mDNS",
+    67: "DHCP", 68: "DHCP", 123: "NTP", 161: "SNMP",
+    3478: "STUN", 5349: "STUNS", 10000: "Webmin",
+}
+
+SERVICE_PATTERNS = {
+    "googlevideo.com": "YouTube",
+    "youtube.com": "YouTube",
+    "ytimg.com": "YouTube",
+    "ggpht.com": "YouTube",
+    "discord.com": "Discord",
+    "discord.gg": "Discord",
+    "discordapp.com": "Discord",
+    "discord.media": "Discord",
+    "discordapp.net": "Discord",
+    "github.com": "GitHub",
+    "github.io": "GitHub",
+    "githubassets.com": "GitHub",
+    "cloudflare.com": "Cloudflare",
+    "cdn77.org": "CDN77",
+    "akamaized.net": "Akamai",
+    "akamaihd.net": "Akamai",
+    "amazonaws.com": "AWS",
+    "amazon.com": "Amazon",
+    "cloudfront.net": "CloudFront",
+    "fastly.net": "Fastly",
+    "edgekey.net": "Akamai",
+    "azure.com": "Azure",
+    "microsoft.com": "Microsoft",
+    "live.com": "Microsoft",
+    "office.com": "Microsoft",
+    "office365.com": "Microsoft",
+    "windows.com": "Microsoft",
+    "google.com": "Google",
+    "googleapis.com": "Google",
+    "gstatic.com": "Google",
+    "g.co": "Google",
+    "1e100.net": "Google",
+    "googleusercontent.com": "Google",
+    "facebook.com": "Facebook",
+    "fbcdn.net": "Facebook",
+    "instagram.com": "Instagram",
+    "cdninstagram.com": "Instagram",
+    "whatsapp.com": "WhatsApp",
+    "twitter.com": "Twitter",
+    "x.com": "Twitter",
+    "twimg.com": "Twitter",
+    "t.co": "Twitter",
+    "reddit.com": "Reddit",
+    "redditstatic.com": "Reddit",
+    "redditmedia.com": "Reddit",
+    "twitch.tv": "Twitch",
+    "jtvnw.net": "Twitch",
+    "ttvnw.net": "Twitch",
+    "netflix.com": "Netflix",
+    "nflxvideo.net": "Netflix",
+    "nflximg.net": "Netflix",
+    "spotify.com": "Spotify",
+    "scdn.co": "Spotify",
+    "open.spotify.com": "Spotify",
+    "steamcontent.com": "Steam",
+    "steampowered.com": "Steam",
+    "steamstatic.com": "Steam",
+    "valve.net": "Steam",
+    "ovh.net": "OVH",
+    "ip-api.com": "ip-api",
+    "scaleway.com": "Scaleway",
+    "digitalocean.com": "DigitalOcean",
+    "linode.com": "Linode",
+    "herokuapp.com": "Heroku",
+    "heroku.com": "Heroku",
+    "slack.com": "Slack",
+    "slack-edge.com": "Slack",
+    "zoom.us": "Zoom",
+    "telegram.org": "Telegram",
+    "t.me": "Telegram",
+    "cdn-telegram.org": "Telegram",
+    "wikipedia.org": "Wikipedia",
+    "wikimedia.org": "Wikipedia",
+    "apple.com": "Apple",
+    "icloud.com": "Apple",
+    "mzstatic.com": "Apple",
+    "paypal.com": "PayPal",
+    "ebay.com": "eBay",
+    "mozilla.org": "Mozilla",
+    "firefox.com": "Mozilla",
+    "temu.com": "Temu",
+    "ajay.app": "Ajay",
+    "signal.org": "Signal",
+    "whispersystems.org": "Signal",
+    "matrix.org": "Matrix",
+    "element.io": "Element",
+    "proton.me": "Proton",
+    "protonmail.com": "Proton",
+    "nordvpn.com": "NordVPN",
+    "wireguard.com": "WireGuard",
+}
+
+ISP_SERVICE_HINTS = {
+    "Google": "Google",
+    "Amazon": "AWS",
+    "Amazon Technologies": "AWS",
+    "Amazon.com": "Amazon",
+    "Microsoft": "Microsoft",
+    "Azure": "Azure",
+    "Cloudflare": "Cloudflare",
+    "Cloudflare, Inc.": "Cloudflare",
+    "Akamai": "Akamai",
+    "Fastly": "Fastly",
+    "Facebook": "Meta",
+    "Meta": "Meta",
+    "Twitter": "Twitter",
+    "Telegram": "Telegram",
+    "Discord": "Discord",
+    "Netflix": "Netflix",
+    "OVH": "OVH",
+    "DigitalOcean": "DigitalOcean",
+    "Linode": "Akamai",
+    "Oracle": "Oracle",
+    "Twitch": "Twitch",
+}
+
+SERVICE_IP_PREFIXES = {
+    "2a00:1450:4017:": "YouTube",
+    "2a00:1450:4013:": "YouTube",
+    "2606:4700:": "Cloudflare",
+    "2620:116:": "Cloudflare",
+    "104.16.": "Cloudflare",
+    "104.17.": "Cloudflare",
+    "104.18.": "Cloudflare",
+    "104.19.": "Cloudflare",
+    "172.64.": "Cloudflare",
+    "198.41.": "Cloudflare",
+    "2001:4860:": "Google",
+    "2a00:1450:": "Google",
+    "2a01:831:": "Hetzner",
+    "142.250.": "Google",
+    "142.251.": "Google",
+    "192.178.": "Google",
+    "216.58.": "Google",
+    "172.217.": "Google",
+    "2600:9000:": "Amazon/AWS",
+    "52.": "Amazon/AWS",
+    "54.": "Amazon/AWS",
+    "34.": "Google Cloud",
+    "2a04:4e42:": "Fastly",
+    "151.101.": "Fastly",
+    "199.232.": "Fastly",
+}
+
+PROC_SERVICE_MAP = {
+    "Discord": "Discord",
+    "discord": "Discord",
+    "Spotify": "Spotify",
+    "spotify": "Spotify",
+    "firefox": "Firefox",
+    "thunderbird": "Thunderbird",
+    "steam": "Steam",
+    "Steam": "Steam",
+    "signal-desktop": "Signal",
+    "Element": "Element",
+    "Skype": "Skype",
+    "slack": "Slack",
+    "WhatsApp": "WhatsApp",
+    "teams": "Microsoft Teams",
+    "Code": "VS Code",
+    "code": "VS Code",
+    "zoom": "Zoom",
+    "Transmission": "BitTorrent",
+    "qBittorrent": "BitTorrent",
+    "deluge": "BitTorrent",
+    "chromium-browser": "Chrome",
+    "chrome": "Chrome",
+    "Chromium": "Chrome",
+    "opera": "Opera",
+    "brave-browser": "Brave",
+    "vivaldi": "Vivaldi",
+    "telegram-desktop": "Telegram",
+    "keepassxc": "KeePassXC",
+    "syncthing": "Syncthing",
+    "obs": "OBS Studio",
+    "blender": "Blender",
+    "docker": "Docker",
+    "containerd": "Docker",
+    "kubelet": "Kubernetes",
+    "npm": "npm",
+    "node": "Node.js",
+    "python3": "Python",
+    "python3.14": "Python",
+    "curl": "curl",
+    "wget": "wget",
+    "git": "Git",
+    "ssh": "SSH",
+    "ncat": "Netcat",
+    "rsync": "rsync",
+}
+
+KNOWN_APP_NAMES = set(PROC_SERVICE_MAP.keys()) | {
+    "systemd", "dbus-daemon", "NetworkManager", "wpa_supplicant",
+    "pulseaudio", "pipewire", "Xwayland", "kwin_wayland", "plasmashell",
+    "kded6", "kaccess", " Discover", "PackageKit", "tracker-miner-fs-3",
+    "baloo_file", "kscreen_backend", "powerdevil", "org_kde_powerdevil",
+    "at-spi2-registryd", "gvfsd", "gvfs-goa-volume-monitor",
+    "evolution-alarm-notify", "xfce4-notifyd",
+}
+
+
+def identify_service(hostname, ip, isp=""):
+    if ip:
+        for prefix, name in SERVICE_IP_PREFIXES.items():
+            if ip.startswith(prefix):
+                return name
+    if hostname:
+        hl = hostname.lower()
+        for pattern, name in SERVICE_PATTERNS.items():
+            if hl.endswith("." + pattern) or hl == pattern:
+                return name
+    if isp:
+        for hint, name in ISP_SERVICE_HINTS.items():
+            if hint.lower() in isp.lower():
+                return name
+    return None
+
+
+def load_settings():
+    if os.path.exists(SETTINGS_FILE):
+        try:
+            with open(SETTINGS_FILE) as f:
+                s = json.load(f)
+                for k, v in DEFAULT_SETTINGS.items():
+                    s.setdefault(k, v)
+                return s
+        except Exception:
+            pass
+    return dict(DEFAULT_SETTINGS)
+
+
+def save_settings_file(settings):
+    try:
+        with open(SETTINGS_FILE, "w") as f:
+            json.dump(settings, f, indent=2)
+    except Exception:
+        pass
+
+
+def load_cache():
+    if os.path.exists(CACHE_FILE):
+        try:
+            with open(CACHE_FILE) as f:
+                return json.load(f)
+        except Exception:
+            return {}
+    return {}
+
+
+def save_cache(cache):
+    try:
+        with open(CACHE_FILE, "w") as f:
+            json.dump(cache, f, indent=2)
+    except Exception:
+        pass
+
+
+# ----------------- SS PARSER -----------------
+_RE = {k: re.compile(v) for k, v in {
+    "sent": r"bytes_sent:(\d+)", "recv": r"bytes_received:(\d+)",
+    "rtt": r"rtt:([\d.]+)/([\d.]+)", "cwnd": r"cwnd:(\d+)",
+    "mss": r"mss:(\d+)", "retrans": r"retrans:(\d+)/(\d+)",
+    "rto": r"rto:([\d.]+)", "swnd": r"snd_wnd:(\d+)",
+    "rwnd": r"rcv_wnd:(\d+)", "drate": r"delivery_rate ([\d.]+)bps",
+}.items()}
+
+
+def _strip_brackets(addr):
+    if addr.startswith("["):
+        idx = addr.find("]:")
+        if idx != -1:
+            return addr[1:idx] + addr[idx+1:]
+    return addr
+
+
+def parse_ss():
+    result = {}
+    for proto_flag, proto_name in [("-tienp", "TCP"), ("-uienp", "UDP")]:
+        try:
+            out = subprocess.run(["ss", proto_flag], capture_output=True, text=True, timeout=3).stdout
+            lines = out.strip().split("\n")
+            i = 0
+            while i < len(lines):
+                line = lines[i].strip()
+                if not line or line.startswith("State") or line.startswith("Recv"):
+                    i += 1; continue
+                parts = line.split()
+                if len(parts) < 4:
+                    i += 1; continue
+
+                if proto_name == "TCP":
+                    if len(parts) < 5:
+                        i += 1; continue
+                    state = parts[0]
+                    local_addr_port = _strip_brackets(parts[3])
+                    remote_addr_port = _strip_brackets(parts[4])
+                else:
+                    state = "UNCONN"
+                    local_addr_port = _strip_brackets(parts[2])
+                    remote_addr_port = _strip_brackets(parts[3])
+
+                proc_name = "System"
+                m = re.search(r'users:\(\("([^"]+)"', line)
+                if m:
+                    proc_name = m.group(1)
+
+                key = (local_addr_port, remote_addr_port)
+                stats = {"state": state, "proc": proc_name, "proto": proto_name,
+                         "sent": 0, "recv": 0, "rtt": 0.0, "rtt_var": 0.0,
+                         "cwnd": 0, "mss": 0, "retrans": 0, "rto": 0.0,
+                         "swnd": 0, "rwnd": 0, "drate": 0.0}
+                if proto_name == "TCP" and i + 1 < len(lines):
+                    sl = lines[i + 1].strip()
+                    if sl and not sl.startswith("State") and not sl.startswith("Recv"):
+                        for rk, fn, t in [("sent", "sent", int), ("recv", "recv", int),
+                                           ("cwnd", "cwnd", int), ("mss", "mss", int),
+                                           ("swnd", "swnd", int), ("rwnd", "rwnd", int),
+                                           ("retrans", "retrans", int), ("drate", "drate", float),
+                                           ("rto", "rto", float)]:
+                            m = _RE[rk].search(sl)
+                            if m:
+                                stats[fn] = t(m.group(1))
+                        m = _RE["rtt"].search(sl)
+                        if m:
+                            stats["rtt"] = float(m.group(1))
+                            stats["rtt_var"] = float(m.group(2))
+                result[key] = stats
+                i += 1
+        except Exception:
+            pass
+    return result
+
+
+# ----------------- PROCESS CACHE -----------------
+class ProcessCache:
+    def __init__(self):
+        self.cache = {}
+        self.lock = threading.Lock()
+        self._cpu_interval = 0.1
+        for p in psutil.process_iter(['pid']):
+            try:
+                p.cpu_percent(interval=0)
+            except Exception:
+                pass
+
+    def get(self, pid):
+        if not pid:
+            return None
+        with self.lock:
+            if pid in self.cache:
+                return self.cache[pid]
+        try:
+            p = psutil.Process(pid)
+            info = {
+                'name': p.name(),
+                'exe': '',
+                'cpu': 0.0,
+                'memory': 0.0,
+                'threads': 0,
+            }
+            try:
+                info['exe'] = p.exe()
+            except (psutil.AccessDenied, psutil.NoSuchProcess):
+                info['exe'] = '?'
+            try:
+                info['cpu'] = p.cpu_percent(interval=0)
+            except Exception:
+                pass
+            try:
+                info['memory'] = p.memory_percent()
+            except Exception:
+                pass
+            try:
+                info['threads'] = p.num_threads()
+            except Exception:
+                pass
+            with self.lock:
+                self.cache[pid] = info
+            return info
+        except (psutil.NoSuchProcess, psutil.AccessDenied):
+            return None
+
+    def cleanup(self, active_pids):
+        with self.lock:
+            for pid in list(self.cache.keys()):
+                if pid not in active_pids:
+                    del self.cache[pid]
+
+
+# ----------------- CONNECTION EVENT LOG -----------------
+class ConnectionEventLog:
+    def __init__(self, max_events=500):
+        self.events = deque(maxlen=max_events)
+        self.seen = set()
+        self.lock = threading.Lock()
+
+    def update(self, conns):
+        current = set(conns.keys())
+        with self.lock:
+            for k in current - self.seen:
+                c = conns[k]
+                self.events.appendleft({
+                    'type': 'connect',
+                    'time': time.time(),
+                    'ip': c['ip'],
+                    'port': c['port'],
+                    'proc': c['proc'],
+                    'service': c.get('service') or '',
+                    'proto': c.get('proto', ''),
+                })
+            for k in self.seen - current:
+                self.events.appendleft({
+                    'type': 'disconnect',
+                    'time': time.time(),
+                    'key': k,
+                    'proc': '',
+                    'service': '',
+                    'ip': k.split(':')[0] if ':' in k else k,
+                    'port': int(k.split(':')[1]) if ':' in k else 0,
+                    'proto': '',
+                })
+            self.seen = current
+
+    def get(self, limit=100):
+        with self.lock:
+            return list(self.events)[:limit]
+
+
+# ----------------- SESSION RECORDER -----------------
+class SessionRecorder:
+    def __init__(self):
+        self.recording = False
+        self.session_file = None
+        self.lock = threading.Lock()
+        self.bytes_written = 0
+
+    def start(self):
+        with self.lock:
+            if self.recording:
+                return
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            self.session_file = os.path.join(RECORDINGS_DIR, f"session_{ts}.jsonl")
+            self.recording = True
+            self.bytes_written = 0
+
+    def stop(self):
+        with self.lock:
+            self.recording = False
+            f = self.session_file
+            self.session_file = None
+            return f
+
+    def is_recording(self):
+        return self.recording
+
+    def record(self, conns, speed, io):
+        if not self.recording:
+            return
+        with self.lock:
+            if not self.session_file:
+                return
+            try:
+                entry = {
+                    't': round(time.time(), 2),
+                    'dl': round(speed['dl'], 2),
+                    'ul': round(speed['ul'], 2),
+                    'tot': io.bytes_sent + io.bytes_recv,
+                    'n': len(conns),
+                }
+                with open(self.session_file, 'a') as f:
+                    f.write(json.dumps(entry) + '\n')
+                    self.bytes_written += len(json.dumps(entry)) + 1
+            except Exception:
+                pass
+
+    def get_status(self):
+        return {
+            'recording': self.recording,
+            'file': os.path.basename(self.session_file) if self.session_file else None,
+            'bytes': self.bytes_written,
+        }
+
+
+# ----------------- BANDWIDTH ALERT MONITOR -----------------
+class BandwidthAlertMonitor:
+    def __init__(self):
+        self.dl_threshold = 0
+        self.ul_threshold = 0
+        self.cooldown = 30
+        self.last_alert_dl = 0
+        self.last_alert_ul = 0
+        self.alerts = deque(maxlen=100)
+        self.window = None
+        self.lock = threading.Lock()
+
+    def configure(self, dl_kb, ul_kb, cooldown=30):
+        with self.lock:
+            self.dl_threshold = dl_kb
+            self.ul_threshold = ul_kb
+            self.cooldown = cooldown
+
+    def check(self, dl_kbs, ul_kbs):
+        now = time.time()
+        triggered = []
+        with self.lock:
+            if self.dl_threshold > 0 and dl_kbs > self.dl_threshold and now - self.last_alert_dl > self.cooldown:
+                self.last_alert_dl = now
+                alert = {'time': now, 'direction': 'Download', 'speed': round(dl_kbs, 1),
+                         'threshold': self.dl_threshold}
+                self.alerts.appendleft(alert)
+                triggered.append(alert)
+            if self.ul_threshold > 0 and ul_kbs > self.ul_threshold and now - self.last_alert_ul > self.cooldown:
+                self.last_alert_ul = now
+                alert = {'time': now, 'direction': 'Upload', 'speed': round(ul_kbs, 1),
+                         'threshold': self.ul_threshold}
+                self.alerts.appendleft(alert)
+                triggered.append(alert)
+        for alert in triggered:
+            if self.window:
+                try:
+                    self.window.evaluate_js(f"window.showAlert({json.dumps(alert)})")
+                except Exception:
+                    pass
+
+    def get_alerts(self, limit=50):
+        with self.lock:
+            return list(self.alerts)[:limit]
+
+
+# ----------------- SPEED TEST -----------------
+class SpeedTestRunner:
+    def __init__(self):
+        self.last_result = None
+        self.running = False
+        self.lock = threading.Lock()
+
+    def run_async(self):
+        with self.lock:
+            if self.running:
+                return False
+            self.running = True
+        threading.Thread(target=self._run, daemon=True).start()
+        return True
+
+    def _run(self):
+        try:
+            result = subprocess.run(
+                ['speedtest-cli', '--json'],
+                capture_output=True, text=True, timeout=120
+            )
+            if result.returncode == 0:
+                data = json.loads(result.stdout)
+                with self.lock:
+                    self.last_result = {
+                        'download': round(data.get('download', 0) / 1_000_000, 2),
+                        'upload': round(data.get('upload', 0) / 1_000_000, 2),
+                        'ping': round(data.get('ping', 0), 1),
+                        'server': data.get('server', {}).get('name', '?'),
+                        'client': data.get('client', {}).get('isp', '?'),
+                        'time': time.time(),
+                    }
+        except Exception:
+            pass
+        with self.lock:
+            self.running = False
+
+    def get_result(self):
+        with self.lock:
+            return {'running': self.running, 'result': self.last_result}
+
+
+# ----------------- SUMMARY TRACKER -----------------
+class SummaryTracker:
+    def __init__(self):
+        self.path = os.path.join(DATA_DIR, "summaries.json")
+        self.hourly = {}
+        self.app_usage = {}
+        self.load()
+
+    def load(self):
+        if os.path.exists(self.path):
+            try:
+                with open(self.path) as f:
+                    data = json.load(f)
+                    self.hourly = data.get('hourly', {})
+                    self.app_usage = data.get('app_usage', {})
+            except Exception:
+                pass
+
+    def save(self):
+        try:
+            with open(self.path, 'w') as f:
+                json.dump({'hourly': self.hourly, 'app_usage': self.app_usage}, f, indent=2)
+        except Exception:
+            pass
+
+    def update(self, io, dl_kbs, ul_kbs, conns):
+        hour_key = datetime.now().strftime('%Y-%m-%d_%H')
+        if hour_key not in self.hourly:
+            self.hourly[hour_key] = {
+                'ts': io.bytes_sent + io.bytes_recv,
+                'bs': io.bytes_sent,
+                'br': io.bytes_recv,
+                'pdl': dl_kbs, 'pul': ul_kbs,
+                'n': 0,
+            }
+        h = self.hourly[hour_key]
+        h['bs'] = io.bytes_sent
+        h['br'] = io.bytes_recv
+        h['pdl'] = max(h['pdl'], dl_kbs)
+        h['pul'] = max(h['pul'], ul_kbs)
+        h['n'] = len(conns)
+
+        for c in conns:
+            name = c.get('service') or c.get('proc') or 'Unknown'
+            if name not in self.app_usage:
+                self.app_usage[name] = {'sent': 0, 'recv': 0, 'last': 0}
+            au = self.app_usage[name]
+            delta_sent = max(0, c.get('sent', 0) - au.get('last_sent', 0))
+            delta_recv = max(0, c.get('recv', 0) - au.get('last_recv', 0))
+            if c.get('sent', 0) >= au.get('last_sent', 0):
+                au['sent'] += delta_sent
+            if c.get('recv', 0) >= au.get('last_recv', 0):
+                au['recv'] += delta_recv
+            au['last_sent'] = c.get('sent', 0)
+            au['last_recv'] = c.get('recv', 0)
+            au['last'] = time.time()
+
+    def get_period_summary(self, period='day'):
+        now = datetime.now()
+        if period == 'day':
+            cutoff = now - timedelta(days=1)
+        elif period == 'week':
+            cutoff = now - timedelta(weeks=1)
+        elif period == 'month':
+            cutoff = now - timedelta(days=30)
+        else:
+            cutoff = now - timedelta(days=365)
+
+        total_dl = 0
+        total_ul = 0
+        peak_dl = 0
+        peak_ul = 0
+        hours = []
+        for hk, hv in sorted(self.hourly.items()):
+            try:
+                dt = datetime.strptime(hk, '%Y-%m-%d_%H')
+                if dt >= cutoff:
+                    peak_dl = max(peak_dl, hv.get('pdl', 0))
+                    peak_ul = max(peak_ul, hv.get('pul', 0))
+                    hours.append({'hour': hk, 'dl': hv.get('pdl', 0), 'ul': hv.get('pul', 0),
+                                  'conn': hv.get('n', 0)})
+            except Exception:
+                pass
+        return {
+            'period': period,
+            'total_hours': len(hours),
+            'peak_dl': round(peak_dl, 2),
+            'peak_ul': round(peak_ul, 2),
+            'hours': hours,
+        }
+
+    def get_app_usage(self, limit=20):
+        sorted_apps = sorted(self.app_usage.items(),
+                             key=lambda x: x[1].get('sent', 0) + x[1].get('recv', 0),
+                             reverse=True)[:limit]
+        return [{'name': n, 'sent': v.get('sent', 0), 'recv': v.get('recv', 0)} for n, v in sorted_apps]
+
+    def cleanup_old(self, days=90):
+        cutoff = (datetime.now() - timedelta(days=days)).strftime('%Y-%m-%d_%H')
+        self.hourly = {k: v for k, v in self.hourly.items() if k >= cutoff}
+
+
+# ----------------- GEO IP RESOLVER -----------------
+class IPResolver:
+    def __init__(self, geo_cache, callback):
+        self.geo_cache = geo_cache
+        self.callback = callback
+        self.queue = deque()
+        self.lock = threading.Lock()
+        self.running = True
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def queue_ip(self, ip):
+        if not ip:
+            return
+        low = ip.lower()
+        if low in ("127.0.0.1", "::1", "fe80::1", "0.0.0.0"):
+            return
+        if low.startswith("192.168.") or low.startswith("10.") or low.startswith("169.254."):
+            return
+        if low.startswith("172."):
+            try:
+                if 16 <= int(low.split(".")[1]) <= 31:
+                    return
+            except (IndexError, ValueError):
+                pass
+        if low.startswith("fe80:") or low.startswith("ff00:") or low.startswith("fc00:") or low.startswith("fd00:"):
+            return
+        with self.lock:
+            if ip not in self.geo_cache and ip not in self.queue:
+                self.queue.append(ip)
+
+    def _run(self):
+        while self.running:
+            batch = []
+            with self.lock:
+                while self.queue and len(batch) < 10:
+                    batch.append(self.queue.popleft())
+            if batch:
+                try:
+                    payload = [{"query": ip, "fields": "status,country,city,lat,lon,isp,org"} for ip in batch]
+                    r = requests.post("http://ip-api.com/batch", json=payload, timeout=5)
+                    if r.status_code == 200:
+                        results = r.json()
+                        for ip, res in zip(batch, results):
+                            if res.get("status") == "success":
+                                self.callback(ip, {"lat": res["lat"], "lon": res["lon"],
+                                                    "country": res.get("country", "?"), "city": res.get("city", "?"),
+                                                    "isp": res.get("isp") or res.get("org") or "?"})
+                            else:
+                                self.callback(ip, None)
+                    else:
+                        for ip in batch:
+                            self.callback(ip, None)
+                except Exception:
+                    with self.lock:
+                        for ip in batch:
+                            if ip not in self.queue:
+                                self.queue.append(ip)
+                time.sleep(1.5)
+            else:
+                time.sleep(0.2)
+
+    def stop(self):
+        self.running = False
+
+
+# ----------------- DOMAIN RESOLVER -----------------
+SERVICE_DOMAINS = {
+    "YouTube": ["youtube.com", "googlevideo.com", "ytimg.com", "ggpht.com"],
+    "Instagram": ["instagram.com", "cdninstagram.com"],
+    "Discord": ["discord.com", "gateway.discord.gg", "cdn.discordapp.com", "media.discordapp.net"],
+    "Netflix": ["netflix.com", "nflxvideo.net", "nflximg.net"],
+    "Spotify": ["open.spotify.com", "api.spotify.com", "spotify.com"],
+    "Twitch": ["twitch.tv", "jtvnw.net", "ttvnw.net"],
+    "Reddit": ["reddit.com", "redditstatic.com", "redditmedia.com"],
+    "Twitter/X": ["twitter.com", "x.com", "api.x.com", "twimg.com"],
+    "Facebook": ["facebook.com", "fbcdn.net"],
+    "Telegram": ["telegram.org", "t.me"],
+    "GitHub": ["github.com", "api.github.com", "github.io"],
+    "Microsoft": ["microsoft.com", "live.com", "office.com", "office365.com", "windows.com"],
+    "Amazon": ["amazon.com", "amazonaws.com"],
+    "Apple": ["apple.com", "icloud.com"],
+    "Steam": ["steampowered.com", "steamcontent.com", "steamstatic.com", "valve.net"],
+    "Cloudflare": ["cloudflare.com", "cloudflareinsights.com"],
+    "Wikipedia": ["wikipedia.org", "wikimedia.org"],
+    "Zoom": ["zoom.us"],
+    "Slack": ["slack.com", "slack-edge.com"],
+    "WhatsApp": ["whatsapp.com"],
+    "PayPal": ["paypal.com"],
+    "eBay": ["ebay.com"],
+    "Mozilla": ["mozilla.org", "firefox.com"],
+    "Temu": ["temu.com"],
+}
+
+
+class DomainResolver:
+    def __init__(self, cache):
+        self.cache = cache
+        self._queue = deque()
+        self.lock = threading.Lock()
+        self.running = True
+        self._dns_map = {}
+        self._forward_map = {}
+        self._service_prefixes = {}
+        threading.Thread(target=self._build_forward_map, daemon=True).start()
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def queue(self, ip):
+        if not ip:
+            return
+        low = ip.lower()
+        if low in ("127.0.0.1", "::1", "fe80::1", "0.0.0.0"):
+            return
+        if low.startswith("192.168.") or low.startswith("10.") or low.startswith("169.254."):
+            return
+        if low.startswith("172."):
+            try:
+                if 16 <= int(low.split(".")[1]) <= 31:
+                    return
+            except (IndexError, ValueError):
+                pass
+        if low.startswith("fe80:") or low.startswith("ff00:") or low.startswith("fc00:") or low.startswith("fd00:"):
+            return
+        key = f"_domain_{ip}"
+        with self.lock:
+            if key not in self.cache and ip not in self._queue:
+                self._queue.append(ip)
+
+    def get(self, ip):
+        if not ip:
+            return None
+        key = f"_domain_{ip}"
+        val = self.cache.get(key)
+        if isinstance(val, dict):
+            return val
+        return None
+
+    def get_service_by_prefix(self, ip):
+        if not ip:
+            return None
+        with self.lock:
+            if ip in self._service_prefixes:
+                return self._service_prefixes[ip]
+        return None
+
+    def _build_forward_map(self):
+        fwd = {}
+        prefixes = {}
+        socket.setdefaulttimeout(3)
+        for service, domains in SERVICE_DOMAINS.items():
+            for d in domains:
+                try:
+                    addrs = socket.getaddrinfo(d, 443, socket.AF_UNSPEC, socket.SOCK_STREAM)
+                    for family, _, _, _, sockaddr in addrs:
+                        addr = sockaddr[0]
+                        fwd[addr] = d
+                        if ":" in addr:
+                            prefix = ":".join(addr.split(":")[:3])
+                        else:
+                            prefix = ".".join(addr.split(".")[:3]) + "."
+                        prefixes[addr] = (prefix, service)
+                except Exception:
+                    pass
+        with self.lock:
+            self._forward_map = fwd
+            self._service_prefixes = prefixes
+
+    def _resolve(self, ip):
+        with self.lock:
+            if ip in self._forward_map:
+                return self._forward_map[ip]
+            if ip in self._dns_map:
+                return self._dns_map[ip]
+        try:
+            r = subprocess.run(["getent", "hosts", ip],
+                               capture_output=True, text=True, timeout=2)
+            if r.returncode == 0 and r.stdout.strip():
+                parts = r.stdout.strip().split()
+                if len(parts) >= 2:
+                    hostname = parts[1]
+                    if hostname.endswith(".in-addr.arpa") or hostname.endswith(".ip6.arpa"):
+                        return None
+                    return hostname
+        except Exception:
+            pass
+        return None
+
+    def _run(self):
+        while self.running:
+            ip = None
+            with self.lock:
+                if self._queue:
+                    ip = self._queue.popleft()
+            if ip:
+                hostname = self._resolve(ip)
+                geo = self.cache.get(ip, {})
+                isp = geo.get("isp", "") if isinstance(geo, dict) else ""
+                service = identify_service(hostname, ip, isp)
+                if not service:
+                    prefix_info = self.get_service_by_prefix(ip)
+                    if prefix_info:
+                        service = prefix_info[1]
+                entry = {"hostname": hostname, "service": service}
+                self.cache[f"_domain_{ip}"] = entry
+                time.sleep(0.1)
+            else:
+                time.sleep(0.5)
+
+    def stop(self):
+        self.running = False
+
+
+# ----------------- CONNECTION TRACKER -----------------
+class ConnectionTracker:
+    def __init__(self, resolver, domain_resolver, process_cache, event_log):
+        self.resolver = resolver
+        self.domain_resolver = domain_resolver
+        self.process_cache = process_cache
+        self.event_log = event_log
+        self.conns = {}
+        self.meta = {}
+        self.lock = threading.Lock()
+        self.running = True
+        threading.Thread(target=self._run, daemon=True).start()
+
+    def _run(self):
+        while self.running:
+            now = time.time()
+            new = {}
+            try:
+                ss = parse_ss()
+                active_pids = set()
+                for c in psutil.net_connections(kind='inet'):
+                    if not c.raddr: continue
+                    rip, rport = c.raddr.ip, c.raddr.port
+                    lip, lport = c.laddr.ip, c.laddr.port
+                    rlow = rip.lower()
+                    if rlow in ("127.0.0.1", "::1", "0.0.0.0") or rlow.startswith("192.168.") or rlow.startswith("10.") or rlow.startswith("169.254."):
+                        continue
+                    if rlow.startswith("172."):
+                        try:
+                            if 16 <= int(rlow.split(".")[1]) <= 31:
+                                continue
+                        except (IndexError, ValueError):
+                            pass
+                    if rlow.startswith("fe80:") or rlow.startswith("ff00:") or rlow.startswith("fc00:") or rlow.startswith("fd00:"):
+                        continue
+                    pid = c.pid
+                    pname = "System"
+                    if pid:
+                        try: pname = psutil.Process(pid).name()
+                        except: pname = "Unknown"
+                        active_pids.add(pid)
+
+                    ck = f"{rip}:{rport}"
+                    lk = f"{lip}:{lport}"
+                    entry = {"ip": rip, "port": rport, "lip": lip, "lport": lport,
+                             "pid": pid, "proc": pname, "state": c.status,
+                             "proto": "TCP" if c.type == socket.SOCK_STREAM else "UDP",
+                             "sent": 0, "recv": 0, "spd_up": 0.0, "spd_dn": 0.0,
+                             "rtt": 0.0, "rtt_var": 0.0, "cwnd": 0, "mss": 0,
+                             "retrans": 0, "rto": 0.0, "swnd": 0, "rwnd": 0, "drate": 0.0,
+                             "first_seen": now, "port_service": PORT_SERVICE_MAP.get(rport, '')}
+
+                    for sk in [(lk, f"{rip}:{rport}"), (f"{rip}:{rport}", lk)]:
+                        if sk in ss:
+                            s = ss[sk]
+                            for f in ["sent", "recv", "rtt", "rtt_var", "cwnd", "mss",
+                                      "retrans", "rto", "swnd", "rwnd", "drate"]:
+                                entry[f] = s[f]
+                            break
+
+                    with self.lock:
+                        m = self.meta.get(ck)
+                        if not m:
+                            m = {"first": now, "ps": entry["sent"], "pr": entry["recv"], "pt": now}
+                            self.meta[ck] = m
+                        entry["first_seen"] = m["first"]
+                        dt = now - m["pt"]
+                        if dt > 0.3:
+                            entry["spd_up"] = max(0, entry["sent"] - m["ps"]) / dt
+                            entry["spd_dn"] = max(0, entry["recv"] - m["pr"]) / dt
+                            m["ps"] = entry["sent"]
+                            m["pr"] = entry["recv"]
+                            m["pt"] = now
+
+                    domain_info = self.domain_resolver.get(rip)
+                    if domain_info and isinstance(domain_info, dict):
+                        entry["hostname"] = domain_info.get("hostname")
+                        entry["service"] = domain_info.get("service")
+                    else:
+                        entry["hostname"] = None
+                        entry["service"] = None
+                    if not entry["service"] and pname in PROC_SERVICE_MAP:
+                        entry["service"] = PROC_SERVICE_MAP[pname]
+                    self.domain_resolver.queue(rip)
+                    new[ck] = entry
+                    self.resolver.queue_ip(rip)
+
+                with self.lock:
+                    for k in [k for k in self.meta if k not in new]:
+                        del self.meta[k]
+                self.process_cache.cleanup(active_pids)
+                self.event_log.update(new)
+            except Exception:
+                pass
+            with self.lock:
+                self.conns = new
+            time.sleep(0.5)
+
+    def get(self):
+        with self.lock:
+            return dict(self.conns)
+
+    def stop(self):
+        self.running = False
+
+
+# ----------------- API BRIDGE -----------------
+class Api:
+    def __init__(self):
+        self.geo = load_cache()
+        self.settings = load_settings()
+        self.home = {"lat": 30.0, "lon": 0.0, "ip": "?", "city": "?", "country": "?", "isp": "?"}
+        self.home_ready = threading.Event()
+        self.window = None
+        self.session_start = time.time()
+        self.session_sent = 0
+        self.session_recv = 0
+
+        self.process_cache = ProcessCache()
+        self.event_log = ConnectionEventLog()
+        self.session_recorder = SessionRecorder()
+        self.alert_monitor = BandwidthAlertMonitor()
+        self.speed_tester = SpeedTestRunner()
+        self.summary_tracker = SummaryTracker()
+        self.unknown_apps = set()
+
+        self.alert_monitor.configure(
+            self.settings.get('alert_dl_threshold', 0),
+            self.settings.get('alert_ul_threshold', 0),
+            self.settings.get('alert_cooldown', 30),
+        )
+
+        self.resolver = IPResolver(self.geo, self._on_resolved)
+        self.domain_resolver = DomainResolver(self.geo)
+        self.tracker = ConnectionTracker(self.resolver, self.domain_resolver, self.process_cache, self.event_log)
+
+        threading.Thread(target=self._resolve_home, daemon=True).start()
+        threading.Thread(target=self._monitor, daemon=True).start()
+
+    def set_window(self, w):
+        self.window = w
+        self.alert_monitor.window = w
+
+    def _on_resolved(self, ip, data):
+        if data:
+            self.geo[ip] = data
+        else:
+            self.geo[ip] = {"lat": None, "lon": None, "country": "?", "city": "?", "isp": "?"}
+        save_cache(self.geo)
+
+    def _resolve_home(self):
+        try:
+            r = requests.get("http://ip-api.com/json/?fields=status,country,city,lat,lon,query,isp", timeout=4)
+            if r.status_code == 200:
+                d = r.json()
+                if d.get("status") == "success":
+                    self.home = {"lat": d["lat"], "lon": d["lon"], "ip": d.get("query", "?"),
+                                 "city": d.get("city", "?"), "country": d.get("country", "?"),
+                                 "isp": d.get("isp", "?")}
+                    self.home_ready.set()
+                    self._push_home()
+                    return
+        except Exception:
+            pass
+        self.home = {"lat": 38.8951, "lon": -77.0364, "ip": "Offline", "city": "Local", "country": "Network", "isp": "Gateway"}
+        self.home_ready.set()
+        self._push_home()
+
+    def _push_home(self):
+        if self.window:
+            try:
+                self.window.evaluate_js(f"window.pushHomeUpdate({json.dumps(self.home)})")
+            except Exception:
+                pass
+
+    def _monitor(self):
+        prev_io = psutil.net_io_counters()
+        prev_t = time.time()
+        dl_hist = deque([0.0] * 120, maxlen=120)
+        ul_hist = deque([0.0] * 120, maxlen=120)
+        tick = 0
+
+        while True:
+            time.sleep(0.25)
+            now = time.time()
+            io = psutil.net_io_counters()
+            dt = now - prev_t
+            if dt > 0:
+                dl = ((io.bytes_recv - prev_io.bytes_recv) / dt) / 1024.0
+                ul = ((io.bytes_sent - prev_io.bytes_sent) / dt) / 1024.0
+                dl_hist.append(dl)
+                ul_hist.append(ul)
+            else:
+                dl = dl_hist[-1] if dl_hist else 0
+                ul = ul_hist[-1] if ul_hist else 0
+            prev_io = io
+            prev_t = now
+
+            conns = self.tracker.get()
+            conns_list = list(conns.values())
+
+            proto_cnt = Counter(c["proto"] for c in conns_list)
+            state_cnt = Counter(c["state"] for c in conns_list)
+            proc_cnt = Counter(c["proc"] for c in conns_list)
+            top_procs = [{"name": n, "count": c} for n, c in proc_cnt.most_common(8)]
+
+            rtts = [c["rtt"] for c in conns_list if c["rtt"] > 0]
+            avg_rtt = sum(rtts) / len(rtts) if rtts else 0
+
+            mapped = sum(1 for c in conns_list
+                         if c["ip"] in self.geo and self.geo[c["ip"]].get("lat") is not None)
+
+            self.session_sent = io.bytes_sent
+            self.session_recv = io.bytes_recv
+            session_dur = time.time() - self.session_start
+
+            country_cnt = Counter()
+            for c in conns_list:
+                g = self.geo.get(c["ip"], {})
+                country = g.get("country", "?") if isinstance(g, dict) else "?"
+                country_cnt[country] += 1
+
+            self.alert_monitor.check(dl, ul)
+
+            tick += 1
+            if tick % 10 == 0:
+                self.summary_tracker.update(io, dl, ul, conns_list)
+                if tick % 60 == 0:
+                    self.summary_tracker.save()
+
+            if self.session_recorder.is_recording():
+                self.session_recorder.record(conns_list, {"dl": dl, "ul": ul}, io)
+
+            for c in conns_list:
+                pname = c.get('proc', '')
+                if pname and pname not in KNOWN_APP_NAMES and pname != 'System' and pname != 'Unknown':
+                    self.unknown_apps.add(pname)
+
+            payload = {
+                "speed": {"dl": round(dl_hist[-1], 2), "ul": round(ul_hist[-1], 2)},
+                "totals": {"sent": io.bytes_sent, "recv": io.bytes_recv},
+                "dl_hist": list(dl_hist), "ul_hist": list(ul_hist),
+                "conns": conns_list,
+                "geo": {k: v for k, v in self.geo.items() if isinstance(v, dict) and v.get("lat") is not None},
+                "home": self.home,
+                "stats": {
+                    "total": len(conns_list), "mapped": mapped,
+                    "tcp": proto_cnt.get("TCP", 0), "udp": proto_cnt.get("UDP", 0),
+                    "states": dict(state_cnt),
+                    "avg_rtt": round(avg_rtt, 1),
+                    "top_procs": top_procs,
+                    "countries": dict(country_cnt.most_common(10)),
+                },
+                "session": {
+                    "start": self.session_start,
+                    "duration": round(session_dur),
+                    "sent": self.session_sent,
+                    "recv": self.session_recv,
+                },
+                "process_details": self._get_process_details_batch(conns_list),
+                "recording": self.session_recorder.get_status(),
+            }
+
+            if self.window:
+                try:
+                    self.window.evaluate_js(f"window.pushUpdate({json.dumps(payload)})")
+                except Exception:
+                    pass
+
+    def _get_process_details_batch(self, conns_list):
+        pids = set(c.get('pid') for c in conns_list if c.get('pid'))
+        result = {}
+        for pid in pids:
+            info = self.process_cache.get(pid)
+            if info:
+                result[pid] = info
+        return result
+
+    # JS-callable methods
+    def get_initial(self):
+        return json.dumps({"settings": self.settings, "home": self.home})
+
+    def get_connections(self):
+        conns = self.tracker.get()
+        conns_list = list(conns.values())
+        io = psutil.net_io_counters()
+        return json.dumps({
+            "conns": conns_list,
+            "geo": {k: v for k, v in self.geo.items() if isinstance(v, dict) and v.get("lat") is not None},
+            "home": self.home,
+        })
+
+    def lookup_ip(self, query):
+        try:
+            ip = socket.gethostbyname(query)
+            r = requests.get(f"http://ip-api.com/json/{ip}?fields=status,country,city,lat,lon,isp,org", timeout=3)
+            if r.status_code == 200:
+                d = r.json()
+                if d.get("status") == "success":
+                    data = {"lat": d["lat"], "lon": d["lon"], "country": d.get("country", "?"),
+                            "city": d.get("city", "?"), "isp": d.get("isp") or d.get("org") or "?"}
+                    self.geo[ip] = data
+                    save_cache(self.geo)
+                    return json.dumps({"ok": True, "ip": ip, **data})
+        except Exception:
+            pass
+        return json.dumps({"ok": False})
+
+    def save_settings(self, s):
+        incoming = json.loads(s) if isinstance(s, str) else s
+        merged = dict(DEFAULT_SETTINGS)
+        merged.update(self.settings)
+        merged.update(incoming)
+        self.settings = merged
+        save_settings_file(self.settings)
+        self.alert_monitor.configure(
+            self.settings.get('alert_dl_threshold', 0),
+            self.settings.get('alert_ul_threshold', 0),
+            self.settings.get('alert_cooldown', 30),
+        )
+        return json.dumps({"ok": True})
+
+    def get_settings(self):
+        return json.dumps(self.settings)
+
+    def get_interfaces(self):
+        ifaces = {}
+        try:
+            addrs = psutil.net_if_addrs()
+            stats = psutil.net_if_stats()
+            for name, addr_list in addrs.items():
+                if stats.get(name) and stats[name].isup:
+                    ifaces[name] = {
+                        "addrs": [a.address for a in addr_list if a.family in (socket.AF_INET, socket.AF_INET6)],
+                        "speed": stats[name].speed,
+                    }
+        except Exception:
+            pass
+        return json.dumps(ifaces)
+
+    def get_event_log(self):
+        return json.dumps(self.event_log.get(200))
+
+    def get_process_detail(self, pid):
+        info = self.process_cache.get(int(pid))
+        return json.dumps(info or {})
+
+    def start_recording(self):
+        self.session_recorder.start()
+        return json.dumps(self.session_recorder.get_status())
+
+    def stop_recording(self):
+        self.session_recorder.stop()
+        return json.dumps(self.session_recorder.get_status())
+
+    def get_recording_status(self):
+        return json.dumps(self.session_recorder.get_status())
+
+    def run_speedtest(self):
+        started = self.speed_tester.run_async()
+        return json.dumps({"started": started})
+
+    def get_speedtest_result(self):
+        return json.dumps(self.speed_tester.get_result())
+
+    def get_summaries(self, period='day'):
+        return json.dumps(self.summary_tracker.get_period_summary(period))
+
+    def get_app_usage(self):
+        return json.dumps(self.summary_tracker.get_app_usage(20))
+
+    def get_unknown_apps(self):
+        return json.dumps(sorted(self.unknown_apps))
+
+    def get_alerts(self):
+        return json.dumps(self.alert_monitor.get_alerts())
+
+    def generate_report(self):
+        conns = self.tracker.get()
+        conns_list = list(conns.values())
+        io = psutil.net_io_counters()
+        session_dur = time.time() - self.session_start
+
+        proc_stats = Counter(c["proc"] for c in conns_list)
+        svc_stats = Counter(c.get("service") or c.get("proc") or "Unknown" for c in conns_list)
+        country_stats = Counter()
+        for c in conns_list:
+            g = self.geo.get(c["ip"], {})
+            country_stats[g.get("country", "?") if isinstance(g, dict) else "?"] += 1
+
+        report_data = {
+            'generated': datetime.now().strftime('%Y-%m-%d %H:%M:%S'),
+            'session_duration': session_dur,
+            'total_sent': io.bytes_sent,
+            'total_recv': io.bytes_recv,
+            'connection_count': len(conns_list),
+            'top_processes': dict(proc_stats.most_common(15)),
+            'top_services': dict(svc_stats.most_common(15)),
+            'top_countries': dict(country_stats.most_common(15)),
+            'app_usage': self.summary_tracker.get_app_usage(20),
+            'alerts': self.alert_monitor.get_alerts(),
+        }
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(REPORTS_DIR, f"report_{ts}.json")
+        with open(path, 'w') as f:
+            json.dump(report_data, f, indent=2)
+        return json.dumps({'ok': True, 'path': path, 'data': report_data})
+
+    def export_json(self):
+        conns = self.tracker.get()
+        conns_list = list(conns.values())
+        io = psutil.net_io_counters()
+        data = {
+            'exported': datetime.now().isoformat(),
+            'session': {
+                'start': self.session_start,
+                'duration': time.time() - self.session_start,
+                'bytes_sent': io.bytes_sent,
+                'bytes_recv': io.bytes_recv,
+            },
+            'connections': conns_list,
+            'app_usage': self.summary_tracker.get_app_usage(50),
+            'unknown_apps': sorted(self.unknown_apps),
+        }
+        ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+        path = os.path.join(DATA_DIR, f"export_{ts}.json")
+        with open(path, 'w') as f:
+            json.dump(data, f, indent=2)
+        return json.dumps({'ok': True, 'path': path})
+
+    def get_summaries_list(self):
+        files = []
+        for f in sorted(os.listdir(RECORDINGS_DIR), reverse=True)[:20]:
+            fp = os.path.join(RECORDINGS_DIR, f)
+            files.append({'name': f, 'size': os.path.getsize(fp)})
+        for f in sorted(os.listdir(REPORTS_DIR), reverse=True)[:20]:
+            fp = os.path.join(REPORTS_DIR, f)
+            files.append({'name': f, 'size': os.path.getsize(fp)})
+        return json.dumps(files)
+
+    def take_screenshot(self):
+        try:
+            ts = datetime.now().strftime("%Y%m%d_%H%M%S")
+            path = os.path.join(REPORTS_DIR, f"screenshot_{ts}.png")
+            if self.window:
+                self.window.screenshot(path)
+                return json.dumps({'ok': True, 'path': path})
+        except Exception as e:
+            return json.dumps({'ok': False, 'error': str(e)})
+        return json.dumps({'ok': False})
+
+
+# ----------------- MAIN -----------------
+def main():
+    api = Api()
+    html_path = os.path.join(BASE_DIR, "index.html")
+    window = webview.create_window(
+        "Network Traffic Monitor",
+        url=f"file://{html_path}",
+        js_api=api,
+        width=1440, height=900,
+        min_size=(1100, 700),
+        text_select=False,
+    )
+    api.set_window(window)
+    webview.start(gui="gtk", debug=False)
+
+
+if __name__ == "__main__":
+    main()
