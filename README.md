@@ -1,4 +1,4 @@
-# Network Traffic Monitor V3
+# Network Traffic Monitor Version 0.3
 
 Real-time network traffic visualization on an interactive world map with live connection tracking, geolocation, and system monitoring.
 
