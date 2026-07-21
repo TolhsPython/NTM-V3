@@ -2,6 +2,7 @@ __pycache__/
 *.pyc
 geoip_cache.json
 settings.json
+panel_sizes.json
 data/
 recordings/
 reports/

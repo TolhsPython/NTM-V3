@@ -1769,6 +1769,13 @@ class Api:
         merged = dict(DEFAULT_SETTINGS)
         merged.update(self.settings)
         merged.update(incoming)
+        panel_file = os.path.join(BASE_DIR, "panel_sizes.json")
+        if os.path.exists(panel_file):
+            try:
+                with open(panel_file) as f:
+                    merged["panel_sizes"] = json.load(f)
+            except Exception:
+                pass
         self.settings = merged
         save_settings_file(self.settings)
         self.alert_monitor.configure(
@@ -1786,12 +1793,22 @@ class Api:
             d = json.loads(data) if isinstance(data, str) else data
             self.settings["panel_sizes"] = d
             save_settings_file(self.settings)
+            panel_file = os.path.join(BASE_DIR, "panel_sizes.json")
+            with open(panel_file, "w") as f:
+                json.dump(d, f, indent=2)
             log(f"Panel sizes saved: {d}")
         except Exception as e:
             log(f"Panel save error: {e}")
         return json.dumps({"ok": True})
 
     def get_panel_sizes(self):
+        panel_file = os.path.join(BASE_DIR, "panel_sizes.json")
+        if os.path.exists(panel_file):
+            try:
+                with open(panel_file) as f:
+                    return f.read()
+            except Exception:
+                pass
         return json.dumps(self.settings.get("panel_sizes", {}))
 
     def get_interfaces(self):
