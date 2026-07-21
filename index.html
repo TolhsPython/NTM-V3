@@ -1520,8 +1520,12 @@ function setupResize(handleId, direction, applyFn, saveKey) {
       h.classList.remove('dragging');
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      if (saveKey && lastVal != null) {
-        try { localStorage.setItem('ntm_' + saveKey, lastVal); } catch(e) {}
+      if (saveKey && lastVal != null && window.pywebview) {
+        var sizes = {};
+        try { sizes = JSON.parse(localStorage.getItem('ntm_panel_sizes') || '{}'); } catch(e) {}
+        sizes[saveKey] = lastVal;
+        try { localStorage.setItem('ntm_panel_sizes', JSON.stringify(sizes)); } catch(e) {}
+        pywebview.api.save_panel_sizes(JSON.stringify(sizes));
       }
     }
   });
@@ -1656,12 +1660,10 @@ async function boot() {
   setupDraggableSections();
 
   try {
-    var slw = localStorage.getItem('ntm_sb_left_w');
-    if (slw) document.getElementById('sidebar').style.width = slw;
-    var srw = localStorage.getItem('ntm_sb_right_w');
-    if (srw) document.getElementById('sidebar-right').style.width = srw;
-    var sbh = localStorage.getItem('ntm_sb_bottom_h');
-    if (sbh) document.getElementById('bottom').style.height = sbh;
+    var panelSizes = JSON.parse(await pywebview.api.get_panel_sizes());
+    if (panelSizes.sb_left_w) document.getElementById('sidebar').style.width = panelSizes.sb_left_w;
+    if (panelSizes.sb_right_w) document.getElementById('sidebar-right').style.width = panelSizes.sb_right_w;
+    if (panelSizes.sb_bottom_h) document.getElementById('bottom').style.height = panelSizes.sb_bottom_h;
   } catch(e) {}
 
   var init = JSON.parse(await pywebview.api.get_initial());

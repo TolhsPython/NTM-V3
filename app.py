@@ -1322,6 +1322,7 @@ class DNSQueryLogger:
     def __init__(self):
         self.lock = threading.Lock()
         self.queries = deque(maxlen=200)
+        self.ip_to_domain = {}
         self.proc = None
         self._start_capture()
 
@@ -1331,7 +1332,7 @@ class DNSQueryLogger:
                 self.proc = subprocess.Popen(
                     ["tshark", "-i", "any", "-f", "port 53", "-T", "fields",
                      "-e", "frame.time", "-e", "dns.qry.name", "-e", "dns.flags.response",
-                     "-l"],
+                     "-e", "dns.a", "-e", "dns.aaaa", "-l"],
                     stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
                 )
                 for line in self.proc.stdout:
@@ -1339,11 +1340,31 @@ class DNSQueryLogger:
                     if not line:
                         continue
                     parts = line.split("\t")
-                    if len(parts) >= 3 and parts[1] and parts[2] == "0":
-                        with self.lock:
+                    if len(parts) < 3:
+                        continue
+                    is_response = parts[2] == "1" if len(parts) > 2 else False
+                    domain = parts[1] if len(parts) > 1 else ""
+                    if not domain:
+                        continue
+                    with self.lock:
+                        if is_response:
+                            resolved_ips = []
+                            if len(parts) > 3 and parts[3]:
+                                resolved_ips.extend(parts[3].split(","))
+                            if len(parts) > 4 and parts[4]:
+                                resolved_ips.extend(parts[4].split(","))
+                            for rip in resolved_ips:
+                                rip = rip.strip()
+                                if rip:
+                                    self.ip_to_domain[rip] = domain
+                                    if len(self.ip_to_domain) > 5000:
+                                        oldest = list(self.ip_to_domain.keys())[:1000]
+                                        for k in oldest:
+                                            self.ip_to_domain.pop(k, None)
+                        else:
                             self.queries.append({
                                 "time": time.time(),
-                                "domain": parts[1],
+                                "domain": domain,
                                 "type": "query",
                             })
             except FileNotFoundError:
@@ -1355,6 +1376,19 @@ class DNSQueryLogger:
     def get(self):
         with self.lock:
             return list(self.queries)[-50:]
+
+    def resolve_service_from_dns(self, ip):
+        with self.lock:
+            domain = self.ip_to_domain.get(ip, "")
+        if not domain:
+            return None
+        dl = domain.lower()
+        youtube_patterns = ("youtube.com", "googlevideo.com", "ytimg.com", "ggpht.com",
+                            "youtu.be", "youtube-nocookie.com")
+        for pat in youtube_patterns:
+            if pat in dl:
+                return "YouTube"
+        return None
 
 
 class LANDiscovery:
@@ -1515,6 +1549,12 @@ class Api:
             conns = self.tracker.get()
             conns_list = list(conns.values())
 
+            for c in conns_list:
+                if not c.get("service") or c.get("service") == "Google":
+                    dns_svc = self.dns_logger.resolve_service_from_dns(c["ip"])
+                    if dns_svc:
+                        c["service"] = dns_svc
+
             proto_cnt = Counter(c["proto"] for c in conns_list)
             state_cnt = Counter(c["state"] for c in conns_list)
             proc_cnt = Counter(c["proc"] for c in conns_list)
@@ -1609,6 +1649,11 @@ class Api:
     def get_connections(self):
         conns = self.tracker.get()
         conns_list = list(conns.values())
+        for c in conns_list:
+            if not c.get("service") or c.get("service") == "Google":
+                dns_svc = self.dns_logger.resolve_service_from_dns(c["ip"])
+                if dns_svc:
+                    c["service"] = dns_svc
         io = psutil.net_io_counters()
         return json.dumps({
             "conns": conns_list,
@@ -1648,6 +1693,18 @@ class Api:
 
     def get_settings(self):
         return json.dumps(self.settings)
+
+    def save_panel_sizes(self, data):
+        try:
+            d = json.loads(data) if isinstance(data, str) else data
+            self.settings["panel_sizes"] = d
+            save_settings_file(self.settings)
+        except Exception:
+            pass
+        return json.dumps({"ok": True})
+
+    def get_panel_sizes(self):
+        return json.dumps(self.settings.get("panel_sizes", {}))
 
     def get_interfaces(self):
         ifaces = {}
