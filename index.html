@@ -22,8 +22,11 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #top-bar .tb-item .tb-label{color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:0.5px}
 #top-bar .tb-item .tb-val{font-weight:600;font-size:10px;min-width:28px;text-align:right}
 #top-bar .tb-sep{display:none}
-#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:1px 6px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:9px;white-space:nowrap}
+#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;white-space:nowrap}
 #top-bar button:hover{color:var(--text);border-color:#444}
+#top-bar button.tb-red{background:rgba(224,108,117,0.15);border:1px solid var(--red);color:var(--red);font-weight:600}
+#top-bar button.tb-red:hover{background:var(--red);color:#fff}
+#top-bar button.tb-red:disabled{opacity:.5;cursor:default}
 #top-bar .kb{font-size:8px;color:var(--text3);display:flex;gap:4px;align-items:center}
 #top-bar .kb kbd{background:var(--bg4);padding:0 2px;border-radius:2px;font-size:8px}
 #tb-home-wrap{flex-direction:column;align-items:flex-start;gap:0}
@@ -139,20 +142,18 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 .badge-tcp{background:rgba(152,195,121,0.15);color:#98c379}.badge-udp{background:rgba(86,182,194,0.15);color:#56b6c2}.badge-quic{background:rgba(198,120,221,0.15);color:#c678dd}
 .svc-icon{margin-right:3px;font-size:12px}
 .btn-settings{width:100%;background:var(--bg4);color:var(--text2);border:1px solid var(--border);padding:7px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px}.btn-settings:hover{color:var(--text);border-color:#444}
-#console-panel{position:fixed;bottom:40px;right:20px;width:480px;height:260px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;z-index:9000;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.6)}
-#console-panel.hidden{display:none}
-#console-header{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);cursor:move;user-select:none;background:var(--bg3);border-radius:8px 8px 0 0;flex-shrink:0}
-#console-header span{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;flex:1}
-#console-header button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:2px 8px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:9px}
-#console-header button:hover{color:var(--text);border-color:#444}
-#console-header button:disabled{opacity:.5;cursor:default}
-#console-body{flex:1;overflow-y:auto;padding:6px 10px;font-family:'SF Mono',Consolas,monospace;font-size:10px;line-height:1.5;color:var(--text2);background:var(--bg)}
+#console-section{display:flex;flex-direction:column;min-height:220px}
+#console-body{flex:1;overflow-y:auto;padding:4px 0;font-family:'SF Mono',Consolas,monospace;font-size:9px;line-height:1.4;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:4px;min-height:150px}
+#console-body::-webkit-scrollbar{width:3px}#console-body::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 .log-line{white-space:pre-wrap;word-break:break-all}
 .log-line.trace{color:var(--cyan)}
 .log-line.error{color:var(--red)}
 .log-line.warn{color:var(--orange)}
-#console-footer{display:flex;align-items:center;gap:6px;padding:4px 10px;border-top:1px solid var(--border);flex-shrink:0}
-#console-footer .trace-progress{font-size:9px;color:var(--text3);flex:1}
+#console-toolbar{display:flex;gap:4px;margin-bottom:4px;align-items:center}
+#console-toolbar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:2px 8px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:10px}
+#console-toolbar button:hover{color:var(--text);border-color:#444}
+#console-toolbar button:disabled{opacity:.5;cursor:default}
+#console-toolbar .trace-progress{font-size:9px;color:var(--text3);flex:1;text-align:right}
 </style>
 </head>
 <body>
@@ -181,7 +182,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="tb-item"><button onclick="exportJson()">JSON</button></div>
       <div class="tb-item"><button onclick="generateReport()">Report</button></div>
       <div class="tb-item"><button onclick="openSettings()">Settings</button></div>
-      <div class="tb-item"><button onclick="runTraceAll()" id="btn-trace-all">Trace All</button></div>
+      <div class="tb-item"><button onclick="runTraceAll()" id="btn-trace-all" class="tb-red">Trace All</button></div>
     </div>
     <div class="tb-sec">
       <div class="kb"><kbd>Ctrl+F</kbd>Filter <kbd>Ctrl+E</kbd>CSV <kbd>Ctrl+S</kbd>Snap <kbd>Esc</kbd>Close</div>
@@ -261,6 +262,15 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     <div class="sb-section" data-id="unknown"><div class="section-title">Unknown Apps</div><div id="st-unknown">None</div></div>
     <div class="sb-section" data-id="ifaces"><div class="section-title">Interfaces</div><div id="st-ifaces">Loading...</div></div>
     <div class="sb-section" data-id="events"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
+    <div class="sb-section" data-id="console" id="console-section">
+      <div class="section-title">Console</div>
+      <div id="console-toolbar">
+        <button onclick="clearConsole()">Clear</button>
+        <button id="btn-trace-all-console" onclick="runTraceAll()">Trace All</button>
+        <span class="trace-progress" id="trace-progress-text"></span>
+      </div>
+      <div id="console-body"></div>
+    </div>
   </div>
   </div>
 </div>
@@ -309,18 +319,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   <div class="set-btns"><button class="apply" onclick="applySettings()">Apply</button><button class="reset" onclick="resetSettings()">Reset</button><button class="close-s" onclick="closeSettings()">Close</button></div>
 </div></div>
 <div id="alert-toast"></div>
-<div id="console-panel">
-  <div id="console-header">
-    <span>Console</span>
-    <button onclick="clearConsole()">Clear</button>
-    <button id="btn-trace-all-console" onclick="runTraceAllFromConsole()">Trace All</button>
-    <button onclick="toggleConsole()" style="font-size:12px">_</button>
-  </div>
-  <div id="console-body"></div>
-  <div id="console-footer">
-    <span class="trace-progress" id="trace-progress-text"></span>
-  </div>
-</div>
 
 <script>
 var TILES = {
@@ -476,10 +474,83 @@ function renderOverlay() {
   var w = canvasOverlay.width / (window.devicePixelRatio || 1);
   var h = canvasOverlay.height / (window.devicePixelRatio || 1);
   ovCtx.clearRect(0, 0, w, h);
+  ovCtx.globalAlpha = 1;
+  ovCtx.setLineDash([]);
+  ovCtx.lineWidth = 1;
+  ovCtx.lineCap = 'round';
+  ovCtx.lineJoin = 'round';
 
-  if (!homeInfo || homeInfo.lat == null || !lastConns.length) return;
+  var allTraceKeys = Object.keys(allTraceData);
+  for (var ti = 0; ti < allTraceKeys.length; ti++) {
+    var td = allTraceData[allTraceKeys[ti]];
+    if (!td || !td.hops || td.hops.length === 0) continue;
+    var hops = td.hops;
+    var baseColor = TRACE_COLORS[ti % TRACE_COLORS.length];
+    var bc = hexToRgb(baseColor);
+    for (var hi = 0; hi < hops.length; hi++) {
+      var hop = hops[hi];
+      if (hop.lat == null || hop.lon == null) continue;
+      var hopP = map.latLngToContainerPoint([hop.lat, hop.lon]);
+      var hopVisible = hopP.x > -500 && hopP.x < w + 500 && hopP.y > -500 && hopP.y < h + 500;
+      var hopRatio = hi / Math.max(1, hops.length - 1);
+      var alpha = 0.4 + hopRatio * 0.6;
+      var hopColor = 'rgba(' + bc.r + ',' + bc.g + ',' + bc.b + ',' + alpha.toFixed(2) + ')';
+      if (hi > 0 && hops[hi-1].lat != null && hops[hi-1].lon != null) {
+        var prevP = map.latLngToContainerPoint([hops[hi-1].lat, hops[hi-1].lon]);
+        var prevVisible = prevP.x > -500 && prevP.x < w + 500 && prevP.y > -500 && prevP.y < h + 500;
+        if (hopVisible || prevVisible) {
+          ovCtx.beginPath();
+          ovCtx.moveTo(prevP.x, prevP.y);
+          ovCtx.lineTo(hopP.x, hopP.y);
+          ovCtx.strokeStyle = hopColor;
+          ovCtx.lineWidth = 2.5;
+          ovCtx.setLineDash([8, 5]);
+          ovCtx.stroke();
+          ovCtx.setLineDash([]);
+        }
+      }
+      if (!hopVisible) continue;
+      var dotR = 3 + hopRatio * 2;
+      ovCtx.beginPath();
+      ovCtx.arc(hopP.x, hopP.y, dotR, 0, Math.PI * 2);
+      ovCtx.fillStyle = hopColor;
+      ovCtx.fill();
+      ovCtx.strokeStyle = baseColor;
+      ovCtx.lineWidth = 1.5;
+      ovCtx.stroke();
+      if (hi === 0 || hi === hops.length - 1) {
+        ovCtx.font = 'bold 10px monospace';
+      } else {
+        ovCtx.font = '9px monospace';
+      }
+      ovCtx.fillStyle = '#fff';
+      ovCtx.globalAlpha = 0.9;
+      var hopLabel = hop.ip || ('#' + hop.hop);
+      if (hop.city && hop.city !== '?') hopLabel = hop.city;
+      if (hi === 0) hopLabel = 'YOU -> ' + hopLabel;
+      else if (hi === hops.length - 1) hopLabel = hopLabel + ' -> DEST';
+      ovCtx.fillText(hopLabel, hopP.x + 7, hopP.y + 3);
+      ovCtx.globalAlpha = 1;
+    }
+  }
 
-  var hp = map.latLngToContainerPoint([homeInfo.lat, homeInfo.lon]);
+  var hp = homeInfo && homeInfo.lat != null ? map.latLngToContainerPoint([homeInfo.lat, homeInfo.lon]) : null;
+
+  if (hp) {
+    if (hp.x >= -50 && hp.x <= w + 50 && hp.y >= -50 && hp.y <= h + 50) {
+      var hc = settings.home_dot_color || '#98c379';
+      ovCtx.beginPath();
+      ovCtx.arc(hp.x, hp.y, 8, 0, Math.PI * 2);
+      ovCtx.fillStyle = hc;
+      ovCtx.globalAlpha = 1;
+      ovCtx.fill();
+      ovCtx.strokeStyle = '#fff';
+      ovCtx.lineWidth = 2;
+      ovCtx.stroke();
+    }
+  }
+
+  if (!hp || !lastConns.length) return;
 
   var lc = settings.line_color || '#c678dd';
   var lw = settings.line_width || 2;
@@ -583,67 +654,6 @@ function renderOverlay() {
     }
   }
 
-  var allTraceKeys = Object.keys(allTraceData);
-  for (var ti = 0; ti < allTraceKeys.length; ti++) {
-    var td = allTraceData[allTraceKeys[ti]];
-    if (!td || !td.hops || td.hops.length === 0) continue;
-    var hops = td.hops;
-    var baseColor = TRACE_COLORS[ti % TRACE_COLORS.length];
-    var bc = hexToRgb(baseColor);
-    for (var hi = 0; hi < hops.length; hi++) {
-      var hop = hops[hi];
-      if (hop.lat == null || hop.lon == null) continue;
-      var hopP = map.latLngToContainerPoint([hop.lat, hop.lon]);
-      if (hopP.x < -200 || hopP.x > w + 200 || hopP.y < -200 || hopP.y > h + 200) continue;
-      var hopRatio = hi / Math.max(1, hops.length - 1);
-      var alpha = 0.4 + hopRatio * 0.6;
-      var hopColor = 'rgba(' + bc.r + ',' + bc.g + ',' + bc.b + ',' + alpha.toFixed(2) + ')';
-      if (hi > 0 && hops[hi-1].lat != null && hops[hi-1].lon != null) {
-        var prevP = map.latLngToContainerPoint([hops[hi-1].lat, hops[hi-1].lon]);
-        ovCtx.beginPath();
-        ovCtx.moveTo(prevP.x, prevP.y);
-        ovCtx.lineTo(hopP.x, hopP.y);
-        ovCtx.strokeStyle = hopColor;
-        ovCtx.lineWidth = 2.5;
-        ovCtx.setLineDash([8, 5]);
-        ovCtx.stroke();
-        ovCtx.setLineDash([]);
-      }
-      var dotR = 3 + hopRatio * 2;
-      ovCtx.beginPath();
-      ovCtx.arc(hopP.x, hopP.y, dotR, 0, Math.PI * 2);
-      ovCtx.fillStyle = hopColor;
-      ovCtx.fill();
-      ovCtx.strokeStyle = baseColor;
-      ovCtx.lineWidth = 1.5;
-      ovCtx.stroke();
-      if (hi === 0 || hi === hops.length - 1) {
-        ovCtx.font = 'bold 10px monospace';
-      } else {
-        ovCtx.font = '9px monospace';
-      }
-      ovCtx.fillStyle = '#fff';
-      ovCtx.globalAlpha = 0.9;
-      var hopLabel = hop.ip || ('#' + hop.hop);
-      if (hop.city && hop.city !== '?') hopLabel = hop.city;
-      if (hi === 0) hopLabel = 'YOU -> ' + hopLabel;
-      else if (hi === hops.length - 1) hopLabel = hopLabel + ' -> DEST';
-      ovCtx.fillText(hopLabel, hopP.x + 7, hopP.y + 3);
-      ovCtx.globalAlpha = 1;
-    }
-  }
-
-  if (hp.x >= -50 && hp.x <= w + 50 && hp.y >= -50 && hp.y <= h + 50) {
-    var hc = settings.home_dot_color || '#98c379';
-    ovCtx.beginPath();
-    ovCtx.arc(hp.x, hp.y, ds + 2, 0, Math.PI * 2);
-    ovCtx.fillStyle = hc;
-    ovCtx.globalAlpha = 1;
-    ovCtx.fill();
-    ovCtx.strokeStyle = '#fff';
-    ovCtx.lineWidth = 2;
-    ovCtx.stroke();
-  }
 }
 
 // ---- THEME ----
@@ -1219,23 +1229,27 @@ async function runTrace() {
 }
 async function runTraceAll() {
   if (!window.pywebview) return;
-  var btn = document.getElementById('btn-trace-all');
-  if (btn.disabled) return;
-  btn.disabled = true;
-  btn.textContent = 'Starting...';
+  var btn1 = document.getElementById('btn-trace-all');
+  var btn2 = document.getElementById('btn-trace-all-console');
+  var btn = btn1 || btn2;
+  if (!btn || btn.disabled) return;
+  btn.disabled = true; btn.textContent = 'Starting...';
+  if (btn1 && btn1 !== btn) { btn1.disabled = true; btn1.textContent = 'Starting...'; }
+  if (btn2 && btn2 !== btn) { btn2.disabled = true; btn2.textContent = 'Starting...'; }
   try { await pywebview.api.trace_all(); } catch(e) {}
   var attempts = 0;
   var poll = setInterval(function() {
     attempts++;
-    if (attempts > 600) { clearInterval(poll); btn.textContent = 'Trace All'; btn.disabled = false; return; }
+    if (attempts > 600) { clearInterval(poll); resetTraceBtns(); return; }
     pywebview.api.get_trace_all_status().then(function(raw) {
       var p = JSON.parse(raw);
       if (p.status === 'running') {
-        btn.textContent = 'Tracing ' + p.done + '/' + p.total;
+        var txt = p.done + '/' + p.total;
+        if (btn1) btn1.textContent = txt;
+        if (btn2) btn2.textContent = txt;
       } else if (p.status === 'done') {
         clearInterval(poll);
-        btn.textContent = 'Trace All';
-        btn.disabled = false;
+        resetTraceBtns();
         pywebview.api.get_all_trace_results().then(function(raw) {
           allTraceData = JSON.parse(raw);
           renderOverlay();
@@ -1243,6 +1257,12 @@ async function runTraceAll() {
       }
     }).catch(function() {});
   }, 1000);
+}
+function resetTraceBtns() {
+  var b1 = document.getElementById('btn-trace-all');
+  var b2 = document.getElementById('btn-trace-all-console');
+  if (b1) { b1.textContent = 'Trace All'; b1.disabled = false; }
+  if (b2) { b2.textContent = 'Trace All'; b2.disabled = false; }
 }
 function updateSystemStats(sys) {
   if (!sys) return;
@@ -1787,13 +1807,7 @@ if (window.pywebview) { boot(); }
 else { window.addEventListener('pywebviewready', boot); }
 
 // ---- CONSOLE ----
-var _logSince = 0, _consoleOpen = true, _logPolling = false;
-
-function toggleConsole() {
-  var el = document.getElementById('console-panel');
-  _consoleOpen = !_consoleOpen;
-  el.classList.toggle('hidden', !_consoleOpen);
-}
+var _logSince = 0;
 
 function clearConsole() {
   document.getElementById('console-body').innerHTML = '';
@@ -1801,6 +1815,7 @@ function clearConsole() {
 
 function appendLog(lines) {
   var body = document.getElementById('console-body');
+  if (!body) return;
   var atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 30;
   for (var i = 0; i < lines.length; i++) {
     var e = lines[i];
@@ -1822,7 +1837,7 @@ function appendLog(lines) {
 }
 
 function pollLogs() {
-  if (!window.pywebview || !_consoleOpen) { setTimeout(pollLogs, 2000); return; }
+  if (!window.pywebview) { setTimeout(pollLogs, 2000); return; }
   pywebview.api.get_logs(_logSince).then(function(raw) {
     var lines = JSON.parse(raw);
     if (lines.length) appendLog(lines);
@@ -1830,44 +1845,18 @@ function pollLogs() {
   setTimeout(pollLogs, 800);
 }
 
-function runTraceAllFromConsole() {
-  runTraceAll();
-}
-
-var _origTraceAllProgress = null;
 var _traceAllConsolePoll = setInterval(function() {
   var progEl = document.getElementById('trace-progress-text');
   if (!progEl || !window.pywebview) return;
   pywebview.api.get_trace_all_status().then(function(raw) {
     var p = JSON.parse(raw);
     if (p.status === 'running') {
-      progEl.textContent = 'Tracing ' + p.done + '/' + p.total + ' - ' + (p.current || '');
+      progEl.textContent = p.done + '/' + p.total + ' - ' + (p.current || '');
     } else {
       progEl.textContent = '';
     }
   }).catch(function() {});
 }, 1000);
-
-// Console drag
-(function() {
-  var hdr = document.getElementById('console-header');
-  var panel = document.getElementById('console-panel');
-  if (!hdr || !panel) return;
-  var dragging = false, sx, sy, px, py;
-  hdr.addEventListener('mousedown', function(e) {
-    if (e.target.tagName === 'BUTTON') return;
-    dragging = true; sx = e.clientX; sy = e.clientY;
-    var r = panel.getBoundingClientRect(); px = r.left; py = r.top;
-    e.preventDefault();
-  });
-  document.addEventListener('mousemove', function(e) {
-    if (!dragging) return;
-    panel.style.left = (px + e.clientX - sx) + 'px';
-    panel.style.top = (py + e.clientY - sy) + 'px';
-    panel.style.right = 'auto'; panel.style.bottom = 'auto';
-  });
-  document.addEventListener('mouseup', function() { dragging = false; });
-})();
 
 setTimeout(pollLogs, 2000);
 

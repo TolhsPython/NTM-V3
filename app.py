@@ -10,6 +10,7 @@ import time
 import socket
 import subprocess
 import threading
+import logging
 from collections import deque, Counter
 from datetime import datetime, timedelta
 
@@ -55,11 +56,52 @@ class TeeWriter:
 
     def flush(self):
         self._orig.flush()
+
+
+class LogHandler(logging.Handler):
+    def emit(self, record):
+        try:
+            msg = self.format(record)
+            _log_capture.write(msg)
+        except Exception:
+            pass
+
+
+def _install_logging():
+    handler = LogHandler()
+    handler.setFormatter(logging.Formatter('[%(levelname)s] %(name)s: %(message)s'))
+    root = logging.getLogger()
+    root.addHandler(handler)
+    root.setLevel(logging.DEBUG)
+
+def _thread_excepthook(args):
+    try:
+        _log_capture.write(f"[THREAD ERROR] {args.thread.name}: {args.exc_value}")
+    except Exception:
+        pass
+
+threading.excepthook = _thread_excepthook
+
+def _install_excepthook():
+    def hook(exc_type, exc_value, exc_tb):
+        import traceback
+        try:
+            lines = traceback.format_exception(exc_type, exc_value, exc_tb)
+            _log_capture.write("[UNCAUGHT] " + "".join(lines).rstrip())
+        except Exception:
+            pass
+    sys.excepthook = hook
+
+
 CACHE_FILE = os.path.join(BASE_DIR, "geoip_cache.json")
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 DATA_DIR = os.path.join(BASE_DIR, "data")
 RECORDINGS_DIR = os.path.join(BASE_DIR, "recordings")
 REPORTS_DIR = os.path.join(BASE_DIR, "reports")
+
+
+def log(msg):
+    _log_capture.write(f"[NETMON] {msg}")
 
 for d in [DATA_DIR, RECORDINGS_DIR, REPORTS_DIR]:
     os.makedirs(d, exist_ok=True)
@@ -506,6 +548,8 @@ class ConnectionEventLog:
         with self.lock:
             for k in current - self.seen:
                 c = conns[k]
+                svc = c.get('service') or c.get('proc', '')
+                log(f"CONNECTED: {c['ip']}:{c['port']} ({c['proto']}) via {svc}")
                 self.events.appendleft({
                     'type': 'connect',
                     'time': time.time(),
@@ -516,13 +560,15 @@ class ConnectionEventLog:
                     'proto': c.get('proto', ''),
                 })
             for k in self.seen - current:
+                ip = k.split(':')[0] if ':' in k else k
+                log(f"DISCONNECTED: {ip}")
                 self.events.appendleft({
                     'type': 'disconnect',
                     'time': time.time(),
                     'key': k,
                     'proc': '',
                     'service': '',
-                    'ip': k.split(':')[0] if ':' in k else k,
+                    'ip': ip,
                     'port': int(k.split(':')[1]) if ':' in k else 0,
                     'proto': '',
                 })
@@ -1081,8 +1127,8 @@ class ConnectionTracker:
                         del self.meta[k]
                 self.process_cache.cleanup(active_pids)
                 self.event_log.update(new)
-            except Exception:
-                pass
+            except Exception as e:
+                log(f"ConnectionTracker error: {e}")
             with self.lock:
                 self.conns = new
             time.sleep(0.5)
@@ -1341,6 +1387,7 @@ class PortScanDetector:
                 if len(ports) >= self.threshold:
                     exists = any(a["ip"] == ip and now - a["time"] < 60 for a in self.alerts)
                     if not exists:
+                        log(f"PORT SCAN ALERT: {ip} hitting {len(ports)} ports")
                         self.alerts.append({
                             "ip": ip, "ports": len(ports),
                             "time": now, "sample": sorted(ports)[:10],
@@ -1405,9 +1452,9 @@ class DNSQueryLogger:
                                 "type": "query",
                             })
             except FileNotFoundError:
-                pass
-            except Exception:
-                pass
+                log("tshark not found - DNS capture disabled")
+            except Exception as e:
+                log(f"DNS capture error: {e}")
         threading.Thread(target=_run, daemon=True).start()
 
     def get(self):
@@ -1669,8 +1716,8 @@ class Api:
             if self.window:
                 try:
                     self.window.evaluate_js(f"window.pushUpdate({json.dumps(payload)})")
-                except Exception:
-                    pass
+                except Exception as e:
+                    log(f"JS push error: {e}")
 
     def _get_process_details_batch(self, conns_list):
         pids = set(c.get('pid') for c in conns_list if c.get('pid'))
@@ -1933,8 +1980,6 @@ class Api:
         return json.dumps({"status": "idle", "total": 0, "done": 0, "current": ""})
 
     def get_all_trace_results(self):
-        with self.tracker.lock:
-            pass
         return json.dumps(self.trace_results)
 
     def get_logs(self, since=0):
@@ -2061,6 +2106,9 @@ class Api:
 def main():
     sys.stdout = TeeWriter(sys.__stdout__, _log_capture)
     sys.stderr = TeeWriter(sys.__stderr__, _log_capture)
+    _install_logging()
+    _install_excepthook()
+    log("Starting Network Traffic Monitor...")
     api = Api()
     html_path = os.path.join(BASE_DIR, "index.html")
     window = webview.create_window(
@@ -2072,7 +2120,8 @@ def main():
         text_select=False,
     )
     api.set_window(window)
-    webview.start(gui="gtk", debug=True)
+    log("Window created, starting GUI...")
+    webview.start(gui="gtk", debug=False)
 
 
 if __name__ == "__main__":
