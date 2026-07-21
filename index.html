@@ -1178,22 +1178,26 @@ async function runTrace() {
 async function runTraceAll() {
   if (!window.pywebview) return;
   var btn = document.getElementById('btn-trace-all');
+  if (btn.disabled) return;
   btn.disabled = true;
   btn.textContent = 'Starting...';
-  await pywebview.api.trace_all();
+  try { await pywebview.api.trace_all(); } catch(e) {}
+  var attempts = 0;
   var poll = setInterval(function() {
+    attempts++;
+    if (attempts > 600) { clearInterval(poll); btn.textContent = 'Trace All'; btn.disabled = false; return; }
     pywebview.api.get_trace_all_status().then(function(raw) {
       var p = JSON.parse(raw);
       if (p.status === 'running') {
         btn.textContent = 'Tracing ' + p.done + '/' + p.total;
-      } else {
+      } else if (p.status === 'done') {
         clearInterval(poll);
         btn.textContent = 'Trace All';
         btn.disabled = false;
         if (lastConns.length) updateDetail(lastConns);
         renderOverlay();
       }
-    });
+    }).catch(function() {});
   }, 1000);
 }
 function updateSystemStats(sys) {

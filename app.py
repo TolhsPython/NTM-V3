@@ -1880,6 +1880,7 @@ class Api:
                 seen.add(ip)
                 ips.append(ip)
 
+        print(f"[TRACE ALL] Found {len(ips)} unique IPs to trace")
         if not ips:
             return json.dumps({"status": "done", "total": 0, "done": 0, "current": ""})
 
@@ -1893,15 +1894,24 @@ class Api:
         return json.dumps({"status": "idle", "total": 0, "done": 0, "current": ""})
 
     def _trace_all_worker(self, ips):
-        for i, ip in enumerate(ips):
-            self._trace_all_progress["current"] = ip
-            self._trace_all_progress["done"] = i
-            now = time.time()
-            if ip not in self.trace_cache_time or now - self.trace_cache_time[ip] >= 300:
-                self._do_traceroute(ip)
-        self._trace_all_progress["done"] = len(ips)
-        self._trace_all_progress["current"] = ""
-        self._trace_all_progress["status"] = "done"
+        try:
+            for i, ip in enumerate(ips):
+                self._trace_all_progress["current"] = ip
+                self._trace_all_progress["done"] = i
+                print(f"[TRACE ALL] {i+1}/{len(ips)} tracing {ip}")
+                now = time.time()
+                if ip not in self.trace_cache_time or now - self.trace_cache_time[ip] >= 300:
+                    try:
+                        self._do_traceroute(ip)
+                    except Exception as e:
+                        print(f"[TRACE ALL] Error tracing {ip}: {e}")
+        except Exception as e:
+            print(f"[TRACE ALL] Worker error: {e}")
+        finally:
+            self._trace_all_progress["done"] = len(ips)
+            self._trace_all_progress["current"] = ""
+            self._trace_all_progress["status"] = "done"
+            print("[TRACE ALL] Done")
 
     def _traceroute_worker(self, ip):
         try:
