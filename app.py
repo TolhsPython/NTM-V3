@@ -390,6 +390,7 @@ def parse_ss():
                         if m:
                             stats["rtt"] = float(m.group(1))
                             stats["rtt_var"] = float(m.group(2))
+                        i += 1
                 result[key] = stats
                 i += 1
         except Exception:
