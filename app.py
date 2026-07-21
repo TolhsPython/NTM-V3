@@ -2023,7 +2023,7 @@ def main():
         text_select=False,
     )
     api.set_window(window)
-    webview.start(gui="gtk", debug=False)
+    webview.start(gui="gtk", debug=True)
 
 
 if __name__ == "__main__":
