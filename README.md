@@ -23,8 +23,7 @@ Real-time network traffic visualization on an interactive world map with live co
 - Speedtest integration
 - Export to CSV/JSON
 - Screenshot capture
-- True Dark Mode (AMOLED)
-- Keyboard shortcuts
+- Dark Mode (AMOLED)
 
 ## Quick Start
 
@@ -71,4 +70,4 @@ bash run.sh
 
 ## Platform
 
-Tested on Fedora/RHEL-based Linux with KDE Plasma (Wayland).
+Developed and Tested on Fedora/RHEL-based Linux with KDE Plasma (Wayland).
