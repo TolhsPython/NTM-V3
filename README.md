@@ -26,24 +26,22 @@ Real-time network traffic visualization on an interactive world map with live co
 - True Dark Mode (AMOLED)
 - Keyboard shortcuts
 
-## Requirements
-
-### Python 3.10+
+## Quick Start
 
 ```bash
-sudo dnf install python3 python3-pip
+git clone https://github.com/TolhsPython/NTM-V3.git
+cd NTM-V3
+bash setup.sh
+bash run.sh
 ```
 
-### Python Packages
+## Manual Setup
+
+### Install Dependencies
 
 ```bash
 pip3 install psutil pywebview requests speedtest-cli
-```
-
-### System Tools
-
-```bash
-sudo dnf install tshark arp-scan iwconfig
+sudo dnf install tshark arp-scan 2>/dev/null || sudo apt install tshark arp-scan 2>/dev/null
 ```
 
 | Package | Purpose |
@@ -54,18 +52,10 @@ sudo dnf install tshark arp-scan iwconfig
 | `speedtest-cli` | Internet speed testing |
 | `tshark` | DNS query capture (optional) |
 | `arp-scan` | LAN device discovery (optional) |
-| `iwconfig` | WiFi signal monitoring (optional) |
-
-### One-liner Install
-
-```bash
-pip3 install psutil pywebview requests speedtest-cli && sudo dnf install tshark arp-scan
-```
 
 ## Usage
 
 ```bash
-cd ~/Apps/NetworkTrafficMap.V3
 bash run.sh
 ```
 
