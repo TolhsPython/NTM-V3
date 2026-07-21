@@ -139,6 +139,20 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 .badge-tcp{background:rgba(152,195,121,0.15);color:#98c379}.badge-udp{background:rgba(86,182,194,0.15);color:#56b6c2}.badge-quic{background:rgba(198,120,221,0.15);color:#c678dd}
 .svc-icon{margin-right:3px;font-size:12px}
 .btn-settings{width:100%;background:var(--bg4);color:var(--text2);border:1px solid var(--border);padding:7px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px}.btn-settings:hover{color:var(--text);border-color:#444}
+#console-panel{position:fixed;bottom:40px;right:20px;width:480px;height:260px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;z-index:9000;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,.6)}
+#console-panel.hidden{display:none}
+#console-header{display:flex;align-items:center;gap:6px;padding:6px 10px;border-bottom:1px solid var(--border);cursor:move;user-select:none;background:var(--bg3);border-radius:8px 8px 0 0;flex-shrink:0}
+#console-header span{font-size:10px;font-weight:700;color:var(--text2);text-transform:uppercase;letter-spacing:.5px;flex:1}
+#console-header button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:2px 8px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:9px}
+#console-header button:hover{color:var(--text);border-color:#444}
+#console-header button:disabled{opacity:.5;cursor:default}
+#console-body{flex:1;overflow-y:auto;padding:6px 10px;font-family:'SF Mono',Consolas,monospace;font-size:10px;line-height:1.5;color:var(--text2);background:var(--bg)}
+.log-line{white-space:pre-wrap;word-break:break-all}
+.log-line.trace{color:var(--cyan)}
+.log-line.error{color:var(--red)}
+.log-line.warn{color:var(--orange)}
+#console-footer{display:flex;align-items:center;gap:6px;padding:4px 10px;border-top:1px solid var(--border);flex-shrink:0}
+#console-footer .trace-progress{font-size:9px;color:var(--text3);flex:1}
 </style>
 </head>
 <body>
@@ -295,6 +309,18 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   <div class="set-btns"><button class="apply" onclick="applySettings()">Apply</button><button class="reset" onclick="resetSettings()">Reset</button><button class="close-s" onclick="closeSettings()">Close</button></div>
 </div></div>
 <div id="alert-toast"></div>
+<div id="console-panel">
+  <div id="console-header">
+    <span>Console</span>
+    <button onclick="clearConsole()">Clear</button>
+    <button id="btn-trace-all-console" onclick="runTraceAllFromConsole()">Trace All</button>
+    <button onclick="toggleConsole()" style="font-size:12px">_</button>
+  </div>
+  <div id="console-body"></div>
+  <div id="console-footer">
+    <span class="trace-progress" id="trace-progress-text"></span>
+  </div>
+</div>
 
 <script>
 var TILES = {
@@ -313,11 +339,19 @@ var SVC_ICONS = {
 function getSvcIcon(s) { return SVC_ICONS[s] || SVC_ICONS['Default']; }
 
 var SVC_COLORS = ['#61afef','#c678dd','#56b6c2','#98c379','#e06c75','#d19a66','#e5c07b','#be5046'];
+var TRACE_COLORS = ['#f97316','#06b6d4','#a855f7','#eab308','#ec4899','#14b8a6','#f43f5e','#84cc16',
+                    '#8b5cf6','#22d3ee','#f59e0b','#e11d48','#10b981','#6366f1','#d946ef','#0ea5e9'];
 
 var map, tileLayer, canvasOverlay, ovCtx;
 var settings = {}, geoCache = {}, homeInfo = {};
-var lastConns = [], selectedIp = null, detailKey = null, groupMode = null, filterQuery = '', traceData = null;
+var lastConns = [], selectedIp = null, detailKey = null, groupMode = null, filterQuery = '';
+var allTraceData = {};
 var processDetails = {}, isRecording = false, connHistory = {};
+
+function hexToRgb(hex) {
+  var r = parseInt(hex.slice(1,3), 16), g = parseInt(hex.slice(3,5), 16), b = parseInt(hex.slice(5,7), 16);
+  return {r: r, g: g, b: b};
+}
 
 function fmtB(b) {
   if (b < 1024) return b + ' B';
@@ -549,43 +583,51 @@ function renderOverlay() {
     }
   }
 
-  if (traceData && traceData.hops && traceData.hops.length > 0) {
-    var hops = traceData.hops;
+  var allTraceKeys = Object.keys(allTraceData);
+  for (var ti = 0; ti < allTraceKeys.length; ti++) {
+    var td = allTraceData[allTraceKeys[ti]];
+    if (!td || !td.hops || td.hops.length === 0) continue;
+    var hops = td.hops;
+    var baseColor = TRACE_COLORS[ti % TRACE_COLORS.length];
+    var bc = hexToRgb(baseColor);
     for (var hi = 0; hi < hops.length; hi++) {
       var hop = hops[hi];
       if (hop.lat == null || hop.lon == null) continue;
       var hopP = map.latLngToContainerPoint([hop.lat, hop.lon]);
       if (hopP.x < -200 || hopP.x > w + 200 || hopP.y < -200 || hopP.y > h + 200) continue;
       var hopRatio = hi / Math.max(1, hops.length - 1);
-      var hr = Math.round(152 + hopRatio * (224 - 152));
-      var hg = Math.round(195 + hopRatio * (108 - 195));
-      var hb = Math.round(121 + hopRatio * (117 - 121));
-      var hopColor = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
+      var alpha = 0.4 + hopRatio * 0.6;
+      var hopColor = 'rgba(' + bc.r + ',' + bc.g + ',' + bc.b + ',' + alpha.toFixed(2) + ')';
       if (hi > 0 && hops[hi-1].lat != null && hops[hi-1].lon != null) {
         var prevP = map.latLngToContainerPoint([hops[hi-1].lat, hops[hi-1].lon]);
         ovCtx.beginPath();
         ovCtx.moveTo(prevP.x, prevP.y);
         ovCtx.lineTo(hopP.x, hopP.y);
         ovCtx.strokeStyle = hopColor;
-        ovCtx.lineWidth = 2;
-        ovCtx.setLineDash([6, 4]);
-        ovCtx.globalAlpha = 0.85;
+        ovCtx.lineWidth = 2.5;
+        ovCtx.setLineDash([8, 5]);
         ovCtx.stroke();
         ovCtx.setLineDash([]);
       }
+      var dotR = 3 + hopRatio * 2;
       ovCtx.beginPath();
-      ovCtx.arc(hopP.x, hopP.y, 4, 0, Math.PI * 2);
+      ovCtx.arc(hopP.x, hopP.y, dotR, 0, Math.PI * 2);
       ovCtx.fillStyle = hopColor;
-      ovCtx.globalAlpha = 1;
       ovCtx.fill();
-      ovCtx.strokeStyle = '#fff';
-      ovCtx.lineWidth = 1;
+      ovCtx.strokeStyle = baseColor;
+      ovCtx.lineWidth = 1.5;
       ovCtx.stroke();
-      ovCtx.font = '10px monospace';
+      if (hi === 0 || hi === hops.length - 1) {
+        ovCtx.font = 'bold 10px monospace';
+      } else {
+        ovCtx.font = '9px monospace';
+      }
       ovCtx.fillStyle = '#fff';
       ovCtx.globalAlpha = 0.9;
       var hopLabel = hop.ip || ('#' + hop.hop);
       if (hop.city && hop.city !== '?') hopLabel = hop.city;
+      if (hi === 0) hopLabel = 'YOU -> ' + hopLabel;
+      else if (hi === hops.length - 1) hopLabel = hopLabel + ' -> DEST';
       ovCtx.fillText(hopLabel, hopP.x + 7, hopP.y + 3);
       ovCtx.globalAlpha = 1;
     }
@@ -1168,7 +1210,7 @@ async function runTrace() {
         if (el) el.textContent = 'Tracing... (' + attempts + 's)';
         setTimeout(poll, 1000);
       } else {
-        traceData = r;
+        allTraceData[detailKey] = r;
         if (el) el.textContent = r.hops && r.hops.length ? r.hops.length + ' hops' : 'Failed';
         renderOverlay();
       }
@@ -1194,8 +1236,10 @@ async function runTraceAll() {
         clearInterval(poll);
         btn.textContent = 'Trace All';
         btn.disabled = false;
-        if (lastConns.length) updateDetail(lastConns);
-        renderOverlay();
+        pywebview.api.get_all_trace_results().then(function(raw) {
+          allTraceData = JSON.parse(raw);
+          renderOverlay();
+        }).catch(function() {});
       }
     }).catch(function() {});
   }, 1000);
@@ -1741,6 +1785,91 @@ async function boot() {
 
 if (window.pywebview) { boot(); }
 else { window.addEventListener('pywebviewready', boot); }
+
+// ---- CONSOLE ----
+var _logSince = 0, _consoleOpen = true, _logPolling = false;
+
+function toggleConsole() {
+  var el = document.getElementById('console-panel');
+  _consoleOpen = !_consoleOpen;
+  el.classList.toggle('hidden', !_consoleOpen);
+}
+
+function clearConsole() {
+  document.getElementById('console-body').innerHTML = '';
+}
+
+function appendLog(lines) {
+  var body = document.getElementById('console-body');
+  var atBottom = body.scrollHeight - body.scrollTop - body.clientHeight < 30;
+  for (var i = 0; i < lines.length; i++) {
+    var e = lines[i];
+    if (e.t > _logSince) _logSince = e.t;
+    var div = document.createElement('div');
+    div.className = 'log-line';
+    var msg = e.msg || '';
+    if (msg.indexOf('[TRACE ALL]') !== -1) div.className += ' trace';
+    else if (msg.indexOf('Error') !== -1 || msg.indexOf('FAIL') !== -1) div.className += ' error';
+    else if (msg.indexOf('WARN') !== -1) div.className += ' warn';
+    var ts = new Date(e.t * 1000).toLocaleTimeString();
+    div.textContent = '[' + ts + '] ' + msg;
+    body.appendChild(div);
+  }
+  if (body.children.length > 500) {
+    while (body.children.length > 400) body.removeChild(body.firstChild);
+  }
+  if (atBottom) body.scrollTop = body.scrollHeight;
+}
+
+function pollLogs() {
+  if (!window.pywebview || !_consoleOpen) { setTimeout(pollLogs, 2000); return; }
+  pywebview.api.get_logs(_logSince).then(function(raw) {
+    var lines = JSON.parse(raw);
+    if (lines.length) appendLog(lines);
+  }).catch(function() {});
+  setTimeout(pollLogs, 800);
+}
+
+function runTraceAllFromConsole() {
+  runTraceAll();
+}
+
+var _origTraceAllProgress = null;
+var _traceAllConsolePoll = setInterval(function() {
+  var progEl = document.getElementById('trace-progress-text');
+  if (!progEl || !window.pywebview) return;
+  pywebview.api.get_trace_all_status().then(function(raw) {
+    var p = JSON.parse(raw);
+    if (p.status === 'running') {
+      progEl.textContent = 'Tracing ' + p.done + '/' + p.total + ' - ' + (p.current || '');
+    } else {
+      progEl.textContent = '';
+    }
+  }).catch(function() {});
+}, 1000);
+
+// Console drag
+(function() {
+  var hdr = document.getElementById('console-header');
+  var panel = document.getElementById('console-panel');
+  if (!hdr || !panel) return;
+  var dragging = false, sx, sy, px, py;
+  hdr.addEventListener('mousedown', function(e) {
+    if (e.target.tagName === 'BUTTON') return;
+    dragging = true; sx = e.clientX; sy = e.clientY;
+    var r = panel.getBoundingClientRect(); px = r.left; py = r.top;
+    e.preventDefault();
+  });
+  document.addEventListener('mousemove', function(e) {
+    if (!dragging) return;
+    panel.style.left = (px + e.clientX - sx) + 'px';
+    panel.style.top = (py + e.clientY - sy) + 'px';
+    panel.style.right = 'auto'; panel.style.bottom = 'auto';
+  });
+  document.addEventListener('mouseup', function() { dragging = false; });
+})();
+
+setTimeout(pollLogs, 2000);
 
 </script>
 </body>

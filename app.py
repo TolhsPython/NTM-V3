@@ -18,6 +18,43 @@ import psutil
 import webview
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+
+
+class LogCapture:
+    def __init__(self):
+        self._buffer = []
+        self._lock = threading.Lock()
+        self._idx = 0
+
+    def write(self, msg):
+        if msg and msg.strip():
+            with self._lock:
+                self._buffer.append({"t": time.time(), "msg": msg.rstrip()})
+                if len(self._buffer) > 500:
+                    self._buffer = self._buffer[-300:]
+
+    def flush(self):
+        pass
+
+    def get(self, since=0):
+        with self._lock:
+            return [e for e in self._buffer if e["t"] > since]
+
+
+_log_capture = LogCapture()
+
+
+class TeeWriter:
+    def __init__(self, original, capture):
+        self._orig = original
+        self._cap = capture
+
+    def write(self, msg):
+        self._orig.write(msg)
+        self._cap.write(msg)
+
+    def flush(self):
+        self._orig.flush()
 CACHE_FILE = os.path.join(BASE_DIR, "geoip_cache.json")
 SETTINGS_FILE = os.path.join(BASE_DIR, "settings.json")
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -1464,6 +1501,8 @@ class Api:
         self.trace_cache_time = {}
         self._trace_running = False
         self._trace_all_progress = None
+        self._log_buffer = []
+        self._log_lock = threading.Lock()
 
         self.alert_monitor.configure(
             self.settings.get('alert_dl_threshold', 0),
@@ -1893,6 +1932,14 @@ class Api:
             return json.dumps(self._trace_all_progress)
         return json.dumps({"status": "idle", "total": 0, "done": 0, "current": ""})
 
+    def get_all_trace_results(self):
+        with self.tracker.lock:
+            pass
+        return json.dumps(self.trace_results)
+
+    def get_logs(self, since=0):
+        return json.dumps(_log_capture.get(since))
+
     def _trace_all_worker(self, ips):
         try:
             for i, ip in enumerate(ips):
@@ -2012,6 +2059,8 @@ class Api:
 
 # ----------------- MAIN -----------------
 def main():
+    sys.stdout = TeeWriter(sys.__stdout__, _log_capture)
+    sys.stderr = TeeWriter(sys.__stderr__, _log_capture)
     api = Api()
     html_path = os.path.join(BASE_DIR, "index.html")
     window = webview.create_window(
