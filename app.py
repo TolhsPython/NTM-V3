@@ -47,6 +47,9 @@ DEFAULT_SETTINGS = {
     "trail_effects": False,
     "mini_pie_charts": True,
     "latency_zones": True,
+    "rtt_colors": True,
+    "bandwidth_thickness": True,
+    "bandwidth_arcs": False,
 }
 
 PORT_SERVICE_MAP = {
@@ -1423,6 +1426,10 @@ class Api:
         self.speed_tester = SpeedTestRunner()
         self.summary_tracker = SummaryTracker()
         self.unknown_apps = set()
+        self.trace_results = {}
+        self.trace_cache_time = {}
+        self._trace_running = False
+        self._trace_all_progress = None
 
         self.alert_monitor.configure(
             self.settings.get('alert_dl_threshold', 0),
@@ -1787,6 +1794,153 @@ class Api:
 
     def get_lan_devices(self):
         return json.dumps(self.lan_discovery.get())
+
+    def traceroute(self, ip):
+        now = time.time()
+        if ip in self.trace_cache_time and now - self.trace_cache_time[ip] < 300:
+            return json.dumps(self.trace_results.get(ip, {"hops": [], "status": "done"}))
+
+        if self._trace_running:
+            return json.dumps({"hops": [], "status": "running"})
+
+        self._trace_running = True
+        self.trace_results[ip] = {"hops": [], "status": "running"}
+        threading.Thread(target=self._traceroute_worker, args=(ip,), daemon=True).start()
+        return json.dumps({"hops": [], "status": "running"})
+
+    def get_trace_result(self, ip):
+        return json.dumps(self.trace_results.get(ip, {"hops": [], "status": "done"}))
+
+    def trace_all(self):
+        if self._trace_all_progress and self._trace_all_progress.get("status") == "running":
+            return json.dumps(self._trace_all_progress)
+
+        seen = set()
+        ips = []
+        for c in self.tracker.get().values():
+            ip = c.get("ip")
+            if ip and ip not in seen and ip != "0.0.0.0" and ip != "127.0.0.1":
+                seen.add(ip)
+                ips.append(ip)
+
+        if not ips:
+            return json.dumps({"status": "done", "total": 0, "done": 0, "current": ""})
+
+        self._trace_all_progress = {"status": "running", "total": len(ips), "done": 0, "current": ""}
+        threading.Thread(target=self._trace_all_worker, args=(ips,), daemon=True).start()
+        return json.dumps(self._trace_all_progress)
+
+    def get_trace_all_status(self):
+        if self._trace_all_progress:
+            return json.dumps(self._trace_all_progress)
+        return json.dumps({"status": "idle", "total": 0, "done": 0, "current": ""})
+
+    def _trace_all_worker(self, ips):
+        for i, ip in enumerate(ips):
+            self._trace_all_progress["current"] = ip
+            self._trace_all_progress["done"] = i
+            now = time.time()
+            if ip not in self.trace_cache_time or now - self.trace_cache_time[ip] >= 300:
+                self._do_traceroute(ip)
+        self._trace_all_progress["done"] = len(ips)
+        self._trace_all_progress["current"] = ""
+        self._trace_all_progress["status"] = "done"
+
+    def _traceroute_worker(self, ip):
+        try:
+            self._do_traceroute(ip)
+        finally:
+            self._trace_running = False
+
+    def _do_traceroute(self, ip):
+        hops = []
+        try:
+            out = subprocess.check_output(
+                ["traceroute", "-n", "-w", "2", "-m", "15", ip],
+                stderr=subprocess.DEVNULL, timeout=35
+            ).decode("utf-8", errors="ignore")
+            for line in out.strip().split("\n")[1:]:
+                parts = line.strip().split()
+                if len(parts) < 3:
+                    continue
+                try:
+                    hop_num = int(parts[0])
+                except ValueError:
+                    continue
+                hop_ip = parts[1]
+                if hop_ip == "*":
+                    continue
+                rtts = []
+                for p in parts[2:]:
+                    p = p.replace("ms", "")
+                    if p == "*":
+                        continue
+                    try:
+                        rtts.append(float(p))
+                    except ValueError:
+                        continue
+                avg_rtt = sum(rtts) / len(rtts) if rtts else 0
+                hops.append({"hop": hop_num, "ip": hop_ip, "rtt": round(avg_rtt, 2),
+                             "lat": None, "lon": None, "city": "?", "country": "?"})
+        except Exception:
+            try:
+                out = subprocess.check_output(
+                    ["mtr", "-r", "-c", "1", "-n", ip],
+                    stderr=subprocess.DEVNULL, timeout=35
+                ).decode("utf-8", errors="ignore")
+                for line in out.strip().split("\n")[1:]:
+                    parts = line.strip().split()
+                    if len(parts) < 5:
+                        continue
+                    try:
+                        hop_num = int(parts[0].rstrip("."))
+                    except ValueError:
+                        continue
+                    hop_ip = parts[1]
+                    if hop_ip in ("???", "*"):
+                        continue
+                    try:
+                        avg_rtt = float(parts[4])
+                    except (ValueError, IndexError):
+                        avg_rtt = 0
+                    hops.append({"hop": hop_num, "ip": hop_ip, "rtt": round(avg_rtt, 2),
+                                 "lat": None, "lon": None, "city": "?", "country": "?"})
+            except Exception:
+                pass
+
+        unique_ips = list(set(h["ip"] for h in hops))
+        geo_data = {}
+        if unique_ips:
+            try:
+                for uip in unique_ips:
+                    if uip in self.geo and isinstance(self.geo[uip], dict) and self.geo[uip].get("lat") is not None:
+                        geo_data[uip] = self.geo[uip]
+                uncached = [uip for uip in unique_ips if uip not in geo_data]
+                if uncached:
+                    payload = [{"query": uip, "fields": "status,country,city,lat,lon"} for uip in uncached]
+                    r = requests.post("http://ip-api.com/batch", json=payload, timeout=10)
+                    if r.status_code == 200:
+                        results = r.json()
+                        for uip, res in zip(uncached, results):
+                            if res.get("status") == "success":
+                                geo_data[uip] = {"lat": res["lat"], "lon": res["lon"],
+                                                 "country": res.get("country", "?"), "city": res.get("city", "?")}
+                            else:
+                                geo_data[uip] = {"lat": None, "lon": None, "country": "?", "city": "?"}
+            except Exception:
+                pass
+
+        for h in hops:
+            gd = geo_data.get(h["ip"], {})
+            if gd:
+                h["lat"] = gd.get("lat")
+                h["lon"] = gd.get("lon")
+                h["city"] = gd.get("city", "?")
+                h["country"] = gd.get("country", "?")
+
+        result = {"hops": hops, "status": "done"}
+        self.trace_results[ip] = result
+        self.trace_cache_time[ip] = time.time()
 
 
 # ----------------- MAIN -----------------

@@ -39,7 +39,13 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #sidebar-right::-webkit-scrollbar{width:3px}#sidebar-right::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 #sidebar-right-resize{position:absolute;top:0;left:-3px;width:6px;height:100%;cursor:col-resize;z-index:10;transition:background .15s}
 #sidebar-right-resize:hover,#sidebar-right-resize.dragging{background:var(--blue)}
-.sb-section{padding:10px 14px;border-bottom:1px solid var(--border)}
+.sb-section{padding:10px 14px;border-bottom:1px solid var(--border);position:relative;transition:opacity .15s}
+.sb-section[data-id]{cursor:default}
+.sb-section .drag-handle{position:absolute;top:4px;right:4px;cursor:grab;color:var(--text3);font-size:10px;opacity:0;transition:opacity .15s;padding:2px 4px}
+.sb-section:hover .drag-handle{opacity:1}
+.sb-section .drag-handle:active{cursor:grabbing}
+.sb-section.dragging{opacity:.4;border:1px dashed var(--blue)}
+.sb-section.drag-over{border-top:2px solid var(--blue)}
 .sb-title{font-size:15px;font-weight:600;color:#fff}.sb-sub{font-size:11px;color:var(--text3);margin-top:2px}
 .speed-val{font-size:15px;font-weight:600;margin:1px 0;letter-spacing:0.5px}
 .speed-val.dl{color:var(--cyan)}.speed-val.ul{color:var(--magenta)}
@@ -83,7 +89,8 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 #detail-bg{position:fixed;top:0;left:0;width:100vw;height:100vh;z-index:999;display:none}#detail-bg.open{display:block}
 #settings-overlay{position:fixed;top:0;left:0;width:100vw;height:100vh;background:rgba(0,0,0,.6);z-index:2000;display:none;justify-content:center;align-items:center}
 #settings-overlay.open{display:flex}
-#settings-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;width:420px;max-height:80vh;overflow-y:auto;padding:18px}
+#settings-box{background:var(--bg2);border:1px solid var(--border);border-radius:8px;width:560px;max-height:85vh;overflow-y:auto;padding:18px}
+.set-columns{display:grid;grid-template-columns:1fr 1fr;gap:0 20px}
 #settings-box::-webkit-scrollbar{width:3px}#settings-box::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 #settings-box h2{font-size:16px;color:var(--blue);margin-bottom:10px;font-weight:600}
 .set-group{border-bottom:1px solid var(--border);padding:8px 0}
@@ -160,6 +167,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="tb-item"><button onclick="exportJson()">JSON</button></div>
       <div class="tb-item"><button onclick="generateReport()">Report</button></div>
       <div class="tb-item"><button onclick="openSettings()">Settings</button></div>
+      <div class="tb-item"><button onclick="runTraceAll()" id="btn-trace-all">Trace All</button></div>
     </div>
     <div class="tb-sec">
       <div class="kb"><kbd>Ctrl+F</kbd>Filter <kbd>Ctrl+E</kbd>CSV <kbd>Ctrl+S</kbd>Snap <kbd>Esc</kbd>Close</div>
@@ -171,13 +179,13 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   <div id="mid">
   <div id="sidebar">
     <div id="sidebar-resize"></div>
-    <div class="sb-section"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="sb-title">Network Monitor</div><div class="sb-sub">Click any dot or line for details</div></div></div></div>
-    <div class="sb-section">
+    <div class="sb-section" data-id="title"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="sb-title">Network Monitor</div><div class="sb-sub">Click any dot or line for details</div></div></div></div>
+    <div class="sb-section" data-id="speeds">
       <div class="speed-val dl" id="sp-dl">0 KB/s</div><div style="font-size:10px;color:var(--text3)" id="dl-label">download</div>
       <div class="speed-val ul" id="sp-ul">0 KB/s</div><div style="font-size:10px;color:var(--text3)" id="ul-label">upload</div>
       <div class="speed-total" id="sp-tot"></div>
     </div>
-    <div class="sb-section">
+    <div class="sb-section" data-id="session">
       <div class="section-title">Session</div>
       <div class="stat-row"><span class="label">Duration</span><span class="value" id="st-sess-dur" style="color:var(--green)">0s</span></div>
       <div class="stat-row"><span class="label">Sent</span><span class="value" id="st-sess-sent" style="color:var(--magenta)">0 B</span></div>
@@ -188,28 +196,29 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div id="rec-status" style="font-size:9px;color:var(--text3);margin-top:3px"></div>
       <div id="speedtest-status" style="font-size:9px;color:var(--text3);margin-top:2px"></div>
     </div>
-    <div class="sb-section"><canvas id="graph-canvas" height="100"></canvas></div>
-    <div class="sb-section">
+    <div class="sb-section" data-id="graph"><canvas id="graph-canvas" height="100"></canvas></div>
+    <div class="sb-section" data-id="usage">
       <div class="section-title">Data Usage</div>
       <div style="display:flex;gap:4px;margin-bottom:4px">
         <button onclick="loadDataUsage('day')" class="usage-tab active" id="ut-day">Day</button>
         <button onclick="loadDataUsage('week')" class="usage-tab" id="ut-week">Week</button>
         <button onclick="loadDataUsage('month')" class="usage-tab" id="ut-month">Month</button>
+        <button onclick="showScansTab()" class="usage-tab" id="ut-scans">Scans</button>
       </div>
       <div id="st-data-usage"></div>
+      <div id="st-scans-tab" style="display:none"><div id="st-scans-inner"></div></div>
     </div>
-    <div class="sb-section">
+    <div class="sb-section" data-id="stats">
       <div class="stat-row"><span class="label">Connections</span><span class="value" id="st-total" style="color:var(--blue)">0</span></div>
       <div class="stat-row"><span class="label">Mapped</span><span class="value" id="st-mapped" style="color:var(--cyan)">0</span></div>
       <div class="stat-row"><span class="label">TCP / UDP</span><span class="value" id="st-proto">0 / 0</span></div>
       <div class="stat-row"><span class="label">Avg Latency</span><span class="value" id="st-rtt" style="color:var(--orange)">0 ms</span></div>
     </div>
-    <div class="sb-section">
+    <div class="sb-section" data-id="ping">
       <div class="section-title">Ping Monitor</div>
       <div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div>
       <div id="st-ping-results"></div>
     </div>
-    <div class="sb-section"><div class="section-title">Map Style</div><select id="map-theme" onchange="changeTheme(this.value,true)"><option value="dark">Dark</option><option value="voyager">Light</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option></select></div>
   </div>
   <div id="main">
     <div id="map"></div>
@@ -225,20 +234,19 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   </div>
   <div id="sidebar-right">
     <div id="sidebar-right-resize"></div>
-    <div class="sb-section" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
-    <div class="sb-section"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
-    <div class="sb-section"><div class="section-title">States</div><div id="st-states"></div></div>
-    <div class="sb-section"><div class="section-title">Processes</div><div id="st-procs"></div></div>
-    <div class="sb-section"><div class="section-title">Bandwidth by Service</div><div id="st-svcs"></div></div>
-    <div class="sb-section"><div class="section-title">Per-Process Speed</div><div id="st-proc-bw"></div></div>
-    <div class="sb-section"><div class="section-title">App Usage</div><div id="st-app-usage">Loading...</div></div>
-    <div class="sb-section"><div class="section-title">Countries</div><div id="st-countries"></div></div>
-    <div class="sb-section"><div class="section-title">Top Talkers</div><div id="st-talkers"></div></div>
-    <div class="sb-section"><div class="section-title">Port Scan Alerts</div><div id="st-scans"></div></div>
-    <div class="sb-section"><div class="section-title">LAN Devices</div><div id="st-lan"><div id="st-lan-list"></div></div></div>
-    <div class="sb-section"><div class="section-title">Unknown Apps</div><div id="st-unknown">None</div></div>
-    <div class="sb-section"><div class="section-title">Interfaces</div><div id="st-ifaces">Loading...</div></div>
-    <div class="sb-section"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
+    <div class="sb-section" data-id="vpn" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
+    <div class="sb-section" data-id="dns"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
+    <div class="sb-section" data-id="states"><div class="section-title">States</div><div id="st-states"></div></div>
+    <div class="sb-section" data-id="procs"><div class="section-title">Processes</div><div id="st-procs"></div></div>
+    <div class="sb-section" data-id="svcs"><div class="section-title">Bandwidth by Service</div><div id="st-svcs"></div></div>
+    <div class="sb-section" data-id="procbw"><div class="section-title">Per-Process Speed</div><div id="st-proc-bw"></div></div>
+    <div class="sb-section" data-id="appusage"><div class="section-title">App Usage</div><div id="st-app-usage">Loading...</div></div>
+    <div class="sb-section" data-id="countries"><div class="section-title">Countries</div><div id="st-countries"></div></div>
+    <div class="sb-section" data-id="talkers"><div class="section-title">Top Talkers</div><div id="st-talkers"></div></div>
+    <div class="sb-section" data-id="lan"><div class="section-title">LAN Devices</div><div id="st-lan"><div id="st-lan-list"></div></div></div>
+    <div class="sb-section" data-id="unknown"><div class="section-title">Unknown Apps</div><div id="st-unknown">None</div></div>
+    <div class="sb-section" data-id="ifaces"><div class="section-title">Interfaces</div><div id="st-ifaces">Loading...</div></div>
+    <div class="sb-section" data-id="events"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
   </div>
   </div>
 </div>
@@ -246,37 +254,43 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 <div id="detail"><div class="detail-hdr"><div><div class="ip" id="d-ip"></div><div class="loc" id="d-loc"></div></div><button class="close-btn" onclick="closeDetail()">&times;</button></div><div id="d-body"></div></div>
 <div id="settings-overlay" onclick="if(event.target===this)closeSettings()"><div id="settings-box">
   <h2>Settings</h2>
-  <div class="set-group"><div class="set-group-title">Lines</div>
-    <div class="set-row"><label>Color</label><input type="color" id="s-lc" value="#c678dd"></div>
-    <div class="set-row"><label>Width</label><input type="range" id="s-lw" min="1" max="6" value="2" oninput="document.getElementById('s-lwv').textContent=this.value"><span class="rv" id="s-lwv">2</span></div>
-  </div>
-  <div class="set-group"><div class="set-group-title">Dots</div>
-    <div class="set-row"><label>Size</label><input type="range" id="s-ds" min="2" max="14" value="6" oninput="document.getElementById('s-dsv').textContent=this.value"><span class="rv" id="s-dsv">6</span></div>
-    <div class="set-row"><label>Color</label><input type="color" id="s-dc" value="#61afef"></div>
-    <div class="set-row"><label>Home Color</label><input type="color" id="s-hc" value="#98c379"></div>
-  </div>
-  <div class="set-group"><div class="set-group-title">Display</div>
-    <div class="set-row"><label>Show Labels</label><div class="set-switch" id="s-sl" onclick="this.classList.toggle('on')"></div></div>
-    <div class="set-row"><label>True Dark Mode</label><div class="set-switch" id="s-td" onclick="toggleTrueDark()"></div></div>
-    <div class="set-row"><label>Text Color</label><input type="color" id="s-tc" value="#cdd3df"></div>
-    <div class="set-row"><label>DL Label</label><input type="text" id="s-dl-label" value="download" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></div>
-    <div class="set-row"><label>UL Label</label><input type="text" id="s-ul-label" value="upload" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></div>
-  </div>
-  <div class="set-group"><div class="set-group-title">Visual Effects</div>
-    <div class="set-row"><label>Flow Animation</label><div class="set-switch on" id="s-flow" onclick="this.classList.toggle('on')"></div></div>
-    <div class="set-row"><label>Service Icons</label><div class="set-switch on" id="s-icons" onclick="this.classList.toggle('on')"></div></div>
-    <div class="set-row"><label>Map Clustering</label><div class="set-switch" id="s-cluster" onclick="this.classList.toggle('on')"></div></div>
-    <div class="set-row"><label>Trail Effects</label><div class="set-switch" id="s-trail" onclick="this.classList.toggle('on')"></div></div>
-    <div class="set-row"><label>Mini Pie Charts</label><div class="set-switch on" id="s-pie" onclick="this.classList.toggle('on')"></div></div>
-    <div class="set-row"><label>Latency Zones</label><div class="set-switch on" id="s-latzone" onclick="this.classList.toggle('on')"></div></div>
-  </div>
-  <div class="set-group"><div class="set-group-title">Bandwidth Alerts</div>
-    <div class="set-row"><label>Download (KB/s)</label><input type="number" id="s-alert-dl" value="0" min="0"></div>
-    <div class="set-row"><label>Upload (KB/s)</label><input type="number" id="s-alert-ul" value="0" min="0"></div>
-    <div class="set-row"><label>Cooldown (s)</label><input type="number" id="s-alert-cd" value="30" min="5"></div>
-  </div>
-  <div class="set-group"><div class="set-group-title">Other</div>
-    <div class="set-row"><label>Desktop Alerts</label><div class="set-switch on" id="s-notif" onclick="this.classList.toggle('on')"></div></div>
+  <div class="set-columns">
+    <div>
+      <div class="set-group"><div class="set-group-title">Map Visual</div>
+        <div class="set-row"><label>Line Color</label><input type="color" id="s-lc" value="#c678dd"></div>
+        <div class="set-row"><label>Line Width</label><input type="range" id="s-lw" min="1" max="6" value="2" oninput="document.getElementById('s-lwv').textContent=this.value"><span class="rv" id="s-lwv">2</span></div>
+        <div class="set-row"><label>Dot Size</label><input type="range" id="s-ds" min="2" max="14" value="6" oninput="document.getElementById('s-dsv').textContent=this.value"><span class="rv" id="s-dsv">6</span></div>
+        <div class="set-row"><label>Dot Color</label><input type="color" id="s-dc" value="#61afef"></div>
+        <div class="set-row"><label>Home Color</label><input type="color" id="s-hc" value="#98c379"></div>
+      </div>
+      <div class="set-group"><div class="set-group-title">Display</div>
+        <div class="set-row"><label>True Dark Mode</label><div class="set-switch" id="s-td" onclick="toggleTrueDark()"></div></div>
+        <div class="set-row"><label>Text Color</label><input type="color" id="s-tc" value="#cdd3df"></div>
+        <div class="set-row"><label>DL Label</label><input type="text" id="s-dl-label" value="download" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></div>
+        <div class="set-row"><label>UL Label</label><input type="text" id="s-ul-label" value="upload" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></div>
+      </div>
+    </div>
+    <div>
+      <div class="set-group"><div class="set-group-title">Map Effects</div>
+        <div class="set-row"><label>Map Style</label><select id="map-theme" onchange="changeTheme(this.value,true)" style="flex:1"><option value="dark">Dark</option><option value="voyager">Light</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option></select></div>
+        <div class="set-row"><label>Show Labels</label><div class="set-switch" id="s-sl" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Flow Animation</label><div class="set-switch on" id="s-flow" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Service Icons</label><div class="set-switch on" id="s-icons" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>RTT Colors</label><div class="set-switch on" id="s-rtt" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Bandwidth Thickness</label><div class="set-switch on" id="s-bwt" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Bandwidth Arcs</label><div class="set-switch" id="s-bwa" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Map Clustering</label><div class="set-switch" id="s-cluster" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Trail Effects</label><div class="set-switch" id="s-trail" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Mini Pie Charts</label><div class="set-switch on" id="s-pie" onclick="this.classList.toggle('on')"></div></div>
+        <div class="set-row"><label>Latency Zones</label><div class="set-switch on" id="s-latzone" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+      <div class="set-group"><div class="set-group-title">Alerts</div>
+        <div class="set-row"><label>DL Threshold (KB/s)</label><input type="number" id="s-alert-dl" value="0" min="0"></div>
+        <div class="set-row"><label>UL Threshold (KB/s)</label><input type="number" id="s-alert-ul" value="0" min="0"></div>
+        <div class="set-row"><label>Cooldown (s)</label><input type="number" id="s-alert-cd" value="30" min="5"></div>
+        <div class="set-row"><label>Desktop Alerts</label><div class="set-switch on" id="s-notif" onclick="this.classList.toggle('on')"></div></div>
+      </div>
+    </div>
   </div>
   <div class="set-btns"><button class="apply" onclick="applySettings()">Apply</button><button class="reset" onclick="resetSettings()">Reset</button><button class="close-s" onclick="closeSettings()">Close</button></div>
 </div></div>
@@ -302,7 +316,7 @@ var SVC_COLORS = ['#61afef','#c678dd','#56b6c2','#98c379','#e06c75','#d19a66','#
 
 var map, tileLayer, canvasOverlay, ovCtx;
 var settings = {}, geoCache = {}, homeInfo = {};
-var lastConns = [], selectedIp = null, detailKey = null, groupMode = null, filterQuery = '';
+var lastConns = [], selectedIp = null, detailKey = null, groupMode = null, filterQuery = '', traceData = null;
 var processDetails = {}, isRecording = false, connHistory = {};
 
 function fmtB(b) {
@@ -346,8 +360,8 @@ function initMap() {
   map.on('click', function(e) {
     var cp = e.containerPoint;
     var ds = settings.dot_size || 6;
-    var hitRadius = ds + 8;
-    var lineHit = 10;
+    var hitRadius = ds + 12;
+    var lineHit = 18;
     var best = null, bestDist = Infinity;
     if (homeInfo && homeInfo.lat != null) {
       var hp = map.latLngToContainerPoint([homeInfo.lat, homeInfo.lon]);
@@ -361,16 +375,35 @@ function initMap() {
           selectConnection(c.ip);
           return;
         }
-        var lx = hp.x - cp.x, ly = hp.y - cp.y;
-        var ex = hp.x - p.x, ey = hp.y - p.y;
-        var len2 = ex * ex + ey * ey;
-        var t = len2 > 0 ? Math.max(0, Math.min(1, (lx * ex + ly * ey) / len2)) : 0;
-        var px = hp.x + t * (p.x - hp.x) - cp.x;
-        var py = hp.y + t * (p.y - hp.y) - cp.y;
-        var dist = Math.sqrt(px * px + py * py);
-        if (dist < lineHit && dist < bestDist) {
-          bestDist = dist;
-          best = c.ip;
+        if (settings.bandwidth_arcs) {
+          var mx = (hp.x + p.x) / 2;
+          var my = (hp.y + p.y) / 2;
+          var ddx = p.x - hp.x, ddy = p.y - hp.y;
+          var dist = Math.sqrt(ddx * ddx + ddy * ddy);
+          var curveAmt = dist * 0.15;
+          var nx = -ddy / (dist || 1), ny = ddx / (dist || 1);
+          var cpx = mx + nx * curveAmt, cpy = my + ny * curveAmt;
+          var steps = 20;
+          for (var s = 0; s <= steps; s++) {
+            var t = s / steps;
+            var bx = (1-t)*(1-t)*hp.x + 2*(1-t)*t*cpx + t*t*p.x;
+            var by = (1-t)*(1-t)*hp.y + 2*(1-t)*t*cpy + t*t*p.y;
+            var bdx = cp.x - bx, bdy = cp.y - by;
+            var bd = Math.sqrt(bdx*bdx + bdy*bdy);
+            if (bd < lineHit && bd < bestDist) { bestDist = bd; best = c.ip; }
+          }
+        } else {
+          var lx = hp.x - cp.x, ly = hp.y - cp.y;
+          var ex = hp.x - p.x, ey = hp.y - p.y;
+          var len2 = ex * ex + ey * ey;
+          var t = len2 > 0 ? Math.max(0, Math.min(1, (lx * ex + ly * ey) / len2)) : 0;
+          var px = hp.x + t * (p.x - hp.x) - cp.x;
+          var py = hp.y + t * (p.y - hp.y) - cp.y;
+          var dist = Math.sqrt(px * px + py * py);
+          if (dist < lineHit && dist < bestDist) {
+            bestDist = dist;
+            best = c.ip;
+          }
         }
       }
     }
@@ -387,11 +420,17 @@ function initMap() {
   });
 }
 
+var _canvasW = 0, _canvasH = 0;
 function sizeCanvas() {
   var dpr = window.devicePixelRatio || 1;
   var rect = canvasOverlay.parentElement.getBoundingClientRect();
-  canvasOverlay.width = rect.width * dpr;
-  canvasOverlay.height = rect.height * dpr;
+  var nw = Math.round(rect.width * dpr);
+  var nh = Math.round(rect.height * dpr);
+  if (nw === _canvasW && nh === _canvasH) return;
+  _canvasW = nw;
+  _canvasH = nh;
+  canvasOverlay.width = nw;
+  canvasOverlay.height = nh;
   canvasOverlay.style.width = rect.width + 'px';
   canvasOverlay.style.height = rect.height + 'px';
   ovCtx.setTransform(dpr, 0, 0, dpr, 0, 0);
@@ -414,6 +453,9 @@ function renderOverlay() {
   var dc = settings.dot_color || '#61afef';
   var flowOn = settings.flow_animation !== false;
   var now = Date.now() / 1000;
+  var rttColOn = settings.rtt_colors !== false;
+  var bwThickOn = settings.bandwidth_thickness !== false;
+  var bwArcOn = settings.bandwidth_arcs === true;
 
   var ipBw = {};
   for (var i = 0; i < lastConns.length; i++) {
@@ -432,11 +474,42 @@ function renderOverlay() {
     var intensity = (ipBw[conn.ip] || 0) / maxBw;
     var isSel = conn.ip === selectedIp;
 
-    ovCtx.beginPath();
-    ovCtx.moveTo(hp.x, hp.y);
-    ovCtx.lineTo(p.x, p.y);
-    ovCtx.strokeStyle = isSel ? '#fff' : lc;
-    ovCtx.lineWidth = isSel ? lw + 3 : lw + intensity * 3;
+    var lineCol = lc;
+    if (rttColOn && !isSel) {
+      if (conn.rtt > 0 && conn.proto === 'TCP') {
+        if (conn.rtt < 50) lineCol = '#98c379';
+        else if (conn.rtt <= 150) lineCol = '#e5c07b';
+        else lineCol = '#e06c75';
+      }
+    }
+    if (isSel) lineCol = '#fff';
+
+    var lineW = lw;
+    if (bwThickOn) lineW = isSel ? lw + 3 : lw + intensity * 3;
+    else lineW = isSel ? lw + 3 : lw;
+
+    if (bwArcOn) {
+      var mx = (hp.x + p.x) / 2;
+      var my = (hp.y + p.y) / 2;
+      var dx = p.x - hp.x;
+      var dy = p.y - hp.y;
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      var curveAmt = dist * 0.15;
+      var nx = -dy / (dist || 1);
+      var ny = dx / (dist || 1);
+      var cpx = mx + nx * curveAmt;
+      var cpy = my + ny * curveAmt;
+      ovCtx.beginPath();
+      ovCtx.moveTo(hp.x, hp.y);
+      ovCtx.quadraticCurveTo(cpx, cpy, p.x, p.y);
+    } else {
+      ovCtx.beginPath();
+      ovCtx.moveTo(hp.x, hp.y);
+      ovCtx.lineTo(p.x, p.y);
+    }
+
+    ovCtx.strokeStyle = lineCol;
+    ovCtx.lineWidth = lineW;
     ovCtx.globalAlpha = isSel ? 1 : Math.max(0.3, 0.3 + intensity * 0.5);
     if (flowOn) {
       var flowSpeed = 30 + intensity * 200;
@@ -473,6 +546,48 @@ function renderOverlay() {
         ovCtx.fillText(label, p.x + dotR + 4, p.y + 3);
         ovCtx.globalAlpha = 1;
       }
+    }
+  }
+
+  if (traceData && traceData.hops && traceData.hops.length > 0) {
+    var hops = traceData.hops;
+    for (var hi = 0; hi < hops.length; hi++) {
+      var hop = hops[hi];
+      if (hop.lat == null || hop.lon == null) continue;
+      var hopP = map.latLngToContainerPoint([hop.lat, hop.lon]);
+      if (hopP.x < -200 || hopP.x > w + 200 || hopP.y < -200 || hopP.y > h + 200) continue;
+      var hopRatio = hi / Math.max(1, hops.length - 1);
+      var hr = Math.round(152 + hopRatio * (224 - 152));
+      var hg = Math.round(195 + hopRatio * (108 - 195));
+      var hb = Math.round(121 + hopRatio * (117 - 121));
+      var hopColor = 'rgb(' + hr + ',' + hg + ',' + hb + ')';
+      if (hi > 0 && hops[hi-1].lat != null && hops[hi-1].lon != null) {
+        var prevP = map.latLngToContainerPoint([hops[hi-1].lat, hops[hi-1].lon]);
+        ovCtx.beginPath();
+        ovCtx.moveTo(prevP.x, prevP.y);
+        ovCtx.lineTo(hopP.x, hopP.y);
+        ovCtx.strokeStyle = hopColor;
+        ovCtx.lineWidth = 2;
+        ovCtx.setLineDash([6, 4]);
+        ovCtx.globalAlpha = 0.85;
+        ovCtx.stroke();
+        ovCtx.setLineDash([]);
+      }
+      ovCtx.beginPath();
+      ovCtx.arc(hopP.x, hopP.y, 4, 0, Math.PI * 2);
+      ovCtx.fillStyle = hopColor;
+      ovCtx.globalAlpha = 1;
+      ovCtx.fill();
+      ovCtx.strokeStyle = '#fff';
+      ovCtx.lineWidth = 1;
+      ovCtx.stroke();
+      ovCtx.font = '10px monospace';
+      ovCtx.fillStyle = '#fff';
+      ovCtx.globalAlpha = 0.9;
+      var hopLabel = hop.ip || ('#' + hop.hop);
+      if (hop.city && hop.city !== '?') hopLabel = hop.city;
+      ovCtx.fillText(hopLabel, hopP.x + 7, hopP.y + 3);
+      ovCtx.globalAlpha = 1;
     }
   }
 
@@ -768,6 +883,7 @@ function closeDetail() {
   detailKey = null;
   document.getElementById('detail').classList.remove('open');
   document.getElementById('detail-bg').classList.remove('open');
+  renderOverlay();
 }
 
 function updateDetail(conns) {
@@ -817,6 +933,7 @@ function updateDetail(conns) {
     '<div class="detail-row"><span class="dl">Upload</span><span class="dv" style="color:#c678dd">' + fmtSpd(totalUp / 1024) + '</span></div>' +
     '<div class="detail-row"><span class="dl">Download</span><span class="dv" style="color:#56b6c2">' + fmtSpd(totalDn / 1024) + '</span></div>' +
     '<div class="detail-row"><span class="dl">Duration</span><span class="dv">' + durStr + '</span></div>' +
+    '<div style="margin-top:6px"><button onclick="runTrace()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:5px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Trace Route</button><div id="trace-status" style="font-size:9px;color:var(--text3);margin-top:2px"></div></div>' +
     '</div>' +
     '<div class="detail-sec"><div class="detail-sec-title">' + (c.proto === 'UDP' ? 'QUIC/UDP' : 'TCP') + '</div>' +
     '<div class="detail-row"><span class="dl">RTT</span><span class="dv">' + c.rtt.toFixed(1) + ' ms</span></div>' +
@@ -1037,6 +1154,48 @@ async function pingHost() {
   h += '<div style="font-size:10px;color:var(--text3)">Loss: ' + r.loss + '% | Jitter: ' + r.jitter.toFixed(1) + ' ms</div>';
   document.getElementById('st-ping-results').innerHTML = h + document.getElementById('st-ping-results').innerHTML;
 }
+async function runTrace() {
+  if (!detailKey || !window.pywebview) return;
+  var el = document.getElementById('trace-status');
+  if (el) el.textContent = 'Tracing...';
+  await pywebview.api.traceroute(detailKey);
+  var attempts = 0;
+  (function poll() {
+    attempts++;
+    pywebview.api.get_trace_result(detailKey).then(function(raw) {
+      var r = JSON.parse(raw);
+      if (r.status === 'running' && attempts < 40) {
+        if (el) el.textContent = 'Tracing... (' + attempts + 's)';
+        setTimeout(poll, 1000);
+      } else {
+        traceData = r;
+        if (el) el.textContent = r.hops && r.hops.length ? r.hops.length + ' hops' : 'Failed';
+        renderOverlay();
+      }
+    });
+  })();
+}
+async function runTraceAll() {
+  if (!window.pywebview) return;
+  var btn = document.getElementById('btn-trace-all');
+  btn.disabled = true;
+  btn.textContent = 'Starting...';
+  await pywebview.api.trace_all();
+  var poll = setInterval(function() {
+    pywebview.api.get_trace_all_status().then(function(raw) {
+      var p = JSON.parse(raw);
+      if (p.status === 'running') {
+        btn.textContent = 'Tracing ' + p.done + '/' + p.total;
+      } else {
+        clearInterval(poll);
+        btn.textContent = 'Trace All';
+        btn.disabled = false;
+        if (lastConns.length) updateDetail(lastConns);
+        renderOverlay();
+      }
+    });
+  }, 1000);
+}
 function updateSystemStats(sys) {
   if (!sys) return;
   var cpuCol = sys.cpu < 50 ? 'var(--green)' : sys.cpu < 80 ? 'var(--orange)' : 'var(--red)';
@@ -1114,7 +1273,7 @@ function updatePortScans(data) {
     var t = data.top_targets[i];
     if (t[1].ports > 1) h += '<div style="font-size:10px;color:var(--text3)">' + t[0] + ': ' + t[1].ports + ' ports</div>';
   }
-  document.getElementById('st-scans').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No scan activity</div>';
+  document.getElementById('st-scans-inner').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No scan activity</div>';
 }
 function updateDnsLog(dns) {
   if (!dns || !dns.length) return;
@@ -1142,6 +1301,8 @@ function updateProcBw(pbw) {
 async function loadDataUsage(period) {
   document.querySelectorAll('.usage-tab').forEach(function(b) { b.classList.remove('active'); });
   document.getElementById('ut-' + period).classList.add('active');
+  document.getElementById('st-data-usage').style.display = '';
+  document.getElementById('st-scans-tab').style.display = 'none';
   if (!window.pywebview) return;
   var r = JSON.parse(await pywebview.api.get_summaries(period));
   if (!r || !r.hours) return;
@@ -1156,6 +1317,12 @@ async function loadDataUsage(period) {
     h += '<div class="svc-bar"><div class="svc-bar-fill" style="width:' + ((hr.pul || 0) / maxBw * 100) + '%;background:var(--magenta)"></div></div>';
   }
   document.getElementById('st-data-usage').innerHTML = h;
+}
+function showScansTab() {
+  document.querySelectorAll('.usage-tab').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('ut-scans').classList.add('active');
+  document.getElementById('st-data-usage').style.display = 'none';
+  document.getElementById('st-scans-tab').style.display = '';
 }
 function fallbackPinLocation() {
   if (homeInfo.lat != null) {
@@ -1200,6 +1367,9 @@ function openSettings() {
   document.getElementById('s-trail').classList.toggle('on', settings.trail_effects === true);
   document.getElementById('s-pie').classList.toggle('on', settings.mini_pie_charts !== false);
   document.getElementById('s-latzone').classList.toggle('on', settings.latency_zones !== false);
+  document.getElementById('s-rtt').classList.toggle('on', settings.rtt_colors !== false);
+  document.getElementById('s-bwt').classList.toggle('on', settings.bandwidth_thickness !== false);
+  document.getElementById('s-bwa').classList.toggle('on', settings.bandwidth_arcs === true);
   document.getElementById('s-alert-dl').value = settings.alert_dl_threshold || 0;
   document.getElementById('s-alert-ul').value = settings.alert_ul_threshold || 0;
   document.getElementById('s-alert-cd').value = settings.alert_cooldown || 30;
@@ -1248,6 +1418,9 @@ async function applySettings() {
   settings.trail_effects = document.getElementById('s-trail').classList.contains('on');
   settings.mini_pie_charts = document.getElementById('s-pie').classList.contains('on');
   settings.latency_zones = document.getElementById('s-latzone').classList.contains('on');
+  settings.rtt_colors = document.getElementById('s-rtt').classList.contains('on');
+  settings.bandwidth_thickness = document.getElementById('s-bwt').classList.contains('on');
+  settings.bandwidth_arcs = document.getElementById('s-bwa').classList.contains('on');
   settings.alert_dl_threshold = parseInt(document.getElementById('s-alert-dl').value) || 0;
   settings.alert_ul_threshold = parseInt(document.getElementById('s-alert-ul').value) || 0;
   settings.alert_cooldown = parseInt(document.getElementById('s-alert-cd').value) || 30;
@@ -1258,7 +1431,7 @@ async function applySettings() {
 }
 
 async function resetSettings() {
-  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, true_dark:false, text_color:'', dl_label:'download', ul_label:'upload', map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true };
+  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, true_dark:false, text_color:'', dl_label:'download', ul_label:'upload', map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true, rtt_colors:true, bandwidth_thickness:true, bandwidth_arcs:false };
   applyTheme(false);
   applyTextColor('');
   document.getElementById('dl-label').textContent = 'download';
@@ -1325,9 +1498,10 @@ document.addEventListener('keydown', function(e) {
 
 // ---- RESIZABLE PANELS ----
 
-function setupResize(handleId, direction, applyFn) {
+function setupResize(handleId, direction, applyFn, saveKey) {
   var h = document.getElementById(handleId);
   var dragging = false;
+  var lastVal = null;
   h.addEventListener('mousedown', function(e) {
     dragging = true;
     h.classList.add('dragging');
@@ -1337,7 +1511,7 @@ function setupResize(handleId, direction, applyFn) {
   });
   document.addEventListener('mousemove', function(e) {
     if (!dragging) return;
-    applyFn(e);
+    lastVal = applyFn(e);
     if (window.map) map.invalidateSize();
   });
   document.addEventListener('mouseup', function() {
@@ -1346,19 +1520,128 @@ function setupResize(handleId, direction, applyFn) {
       h.classList.remove('dragging');
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
+      if (saveKey && lastVal != null) {
+        try { localStorage.setItem('ntm_' + saveKey, lastVal); } catch(e) {}
+      }
     }
   });
 }
 
 setupResize('sidebar-resize', 'col', function(e) {
-  document.getElementById('sidebar').style.width = Math.min(Math.max(e.clientX, 180), 500) + 'px';
-});
+  var w = Math.min(Math.max(e.clientX, 180), 500) + 'px';
+  document.getElementById('sidebar').style.width = w;
+  return w;
+}, 'sb_left_w');
 setupResize('bottom-resize', 'row', function(e) {
-  document.getElementById('bottom').style.height = Math.min(Math.max(window.innerHeight - e.clientY, 80), window.innerHeight - 100) + 'px';
-});
+  var h = Math.min(Math.max(window.innerHeight - e.clientY, 80), window.innerHeight - 100) + 'px';
+  document.getElementById('bottom').style.height = h;
+  return h;
+}, 'sb_bottom_h');
 setupResize('sidebar-right-resize', 'col', function(e) {
-  document.getElementById('sidebar-right').style.width = Math.min(Math.max(window.innerWidth - e.clientX, 160), 400) + 'px';
-});
+  var w = Math.min(Math.max(window.innerWidth - e.clientX, 160), 400) + 'px';
+  document.getElementById('sidebar-right').style.width = w;
+  return w;
+}, 'sb_right_w');
+
+// ---- DRAGGABLE SECTIONS (cross-panel) ----
+
+var _draggedSec = null;
+var _draggedFrom = null;
+
+function setupDraggableSections() {
+  document.querySelectorAll('#sidebar .sb-section[data-id], #sidebar-right .sb-section[data-id]').forEach(function(sec) {
+    var handle = document.createElement('span');
+    handle.className = 'drag-handle';
+    handle.innerHTML = '\u2630';
+    handle.draggable = true;
+    sec.appendChild(handle);
+    handle.addEventListener('mousedown', function(e) { e.stopPropagation(); });
+    handle.addEventListener('dragstart', function(e) {
+      _draggedSec = sec;
+      _draggedFrom = sec.parentElement;
+      e.dataTransfer.setData('text/plain', sec.dataset.id);
+      e.dataTransfer.effectAllowed = 'move';
+      sec.classList.add('dragging');
+      setTimeout(function() { sec.style.opacity = '0.3'; }, 0);
+    });
+    handle.addEventListener('dragend', function() {
+      sec.classList.remove('dragging');
+      sec.style.opacity = '';
+      document.querySelectorAll('.sb-section').forEach(function(s) { s.classList.remove('drag-over'); });
+      _draggedSec = null;
+      _draggedFrom = null;
+    });
+  });
+
+  ['#sidebar', '#sidebar-right'].forEach(function(sel) {
+    var container = document.querySelector(sel);
+    if (!container) return;
+    container.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    container.addEventListener('dragenter', function(e) {
+      e.preventDefault();
+    });
+  });
+
+  document.querySelectorAll('#sidebar .sb-section[data-id], #sidebar-right .sb-section[data-id]').forEach(function(sec) {
+    sec.addEventListener('dragover', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      e.dataTransfer.dropEffect = 'move';
+    });
+    sec.addEventListener('dragenter', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      if (_draggedSec && _draggedSec !== sec) sec.classList.add('drag-over');
+    });
+    sec.addEventListener('dragleave', function(e) {
+      if (!sec.contains(e.relatedTarget)) sec.classList.remove('drag-over');
+    });
+    sec.addEventListener('drop', function(e) {
+      e.preventDefault();
+      e.stopPropagation();
+      sec.classList.remove('drag-over');
+      if (!_draggedSec || _draggedSec === sec) return;
+      var targetContainer = sec.parentElement;
+      if (_draggedFrom === targetContainer) {
+        var allSections = Array.from(targetContainer.querySelectorAll('.sb-section[data-id]'));
+        var dragIdx = allSections.indexOf(_draggedSec);
+        var dropIdx = allSections.indexOf(sec);
+        if (dragIdx < dropIdx) {
+          targetContainer.insertBefore(_draggedSec, sec.nextSibling);
+        } else {
+          targetContainer.insertBefore(_draggedSec, sec);
+        }
+      } else {
+        targetContainer.insertBefore(_draggedSec, sec);
+      }
+      saveSectionOrder('sidebar');
+      saveSectionOrder('sidebar-right');
+    });
+  });
+}
+
+function saveSectionOrder(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  var order = Array.from(container.querySelectorAll('.sb-section[data-id]')).map(function(s) { return s.dataset.id; });
+  try { localStorage.setItem('ntm_order_' + containerId, JSON.stringify(order)); } catch(e) {}
+}
+
+function loadSectionOrder(containerId) {
+  var container = document.getElementById(containerId);
+  if (!container) return;
+  try {
+    var order = JSON.parse(localStorage.getItem('ntm_order_' + containerId));
+    if (!order || !order.length) return;
+    order.forEach(function(id) {
+      var el = container.querySelector('[data-id="' + id + '"]');
+      if (el) container.appendChild(el);
+    });
+  } catch(e) {}
+}
 
 // ---- BOOT ----
 
@@ -1367,6 +1650,19 @@ async function boot() {
   await new Promise(function(r) { requestAnimationFrame(function() { requestAnimationFrame(r); }); });
   initMap();
   map.invalidateSize();
+
+  loadSectionOrder('sidebar');
+  loadSectionOrder('sidebar-right');
+  setupDraggableSections();
+
+  try {
+    var slw = localStorage.getItem('ntm_sb_left_w');
+    if (slw) document.getElementById('sidebar').style.width = slw;
+    var srw = localStorage.getItem('ntm_sb_right_w');
+    if (srw) document.getElementById('sidebar-right').style.width = srw;
+    var sbh = localStorage.getItem('ntm_sb_bottom_h');
+    if (sbh) document.getElementById('bottom').style.height = sbh;
+  } catch(e) {}
 
   var init = JSON.parse(await pywebview.api.get_initial());
   settings = init.settings || {};
