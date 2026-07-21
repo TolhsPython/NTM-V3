@@ -12,15 +12,24 @@
 body.true-dark, html.dark-theme{--bg:#000000;--bg2:#0a0a0a;--bg3:#111111;--bg4:#1a1a1a;--border:#222222;--text:#e0e0e0;--text2:#888888;--text3:#555555;--blue:#5599ee;--cyan:#44aaaa;--green:#66aa55;--red:#cc4455;--magenta:#aa66cc;--orange:#bb8844;--yellow:#ccaa44}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:13px}
 #app{display:flex;flex-direction:column;height:100vh;width:100vw}
-#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:6px 14px;overflow-x:auto;overflow-y:hidden;flex-shrink:0;min-height:48px}
-#top-bar .tb-item{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:11px;color:var(--text2)}
-#top-bar .tb-item .tb-label{color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:0.5px}
-#top-bar .tb-item .tb-val{font-weight:600}
-#top-bar .tb-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
-#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:10px;white-space:nowrap}
+#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:stretch;gap:0;padding:0;flex-shrink:0;min-height:24px;position:relative}
+#top-bar-resize{position:absolute;bottom:-3px;left:0;width:100%;height:6px;cursor:row-resize;z-index:10;transition:background .15s}
+#top-bar-resize:hover,#top-bar-resize.dragging{background:var(--blue)}
+.tb-sec{display:flex;align-items:center;gap:6px;padding:2px 8px;border-right:1px solid var(--border)}
+.tb-sec:last-child{border-right:none}
+.tb-sec:last-child{margin-left:auto}
+#top-bar .tb-item{display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:10px;color:var(--text2);min-width:50px}
+#top-bar .tb-item .tb-label{color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:0.5px}
+#top-bar .tb-item .tb-val{font-weight:600;font-size:10px;min-width:28px;text-align:right}
+#top-bar .tb-sep{display:none}
+#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:1px 6px;border-radius:3px;cursor:pointer;font-family:inherit;font-size:9px;white-space:nowrap}
 #top-bar button:hover{color:var(--text);border-color:#444}
-#top-bar .kb{font-size:9px;color:var(--text3)}
-#top-bar .kb kbd{background:var(--bg4);padding:1px 3px;border-radius:2px;font-size:9px}
+#top-bar .kb{font-size:8px;color:var(--text3);display:flex;gap:4px;align-items:center}
+#top-bar .kb kbd{background:var(--bg4);padding:0 2px;border-radius:2px;font-size:8px}
+#tb-home-wrap{flex-direction:column;align-items:flex-start;gap:0}
+.tb-sub{font-size:8px;color:var(--text3);font-weight:400;line-height:1}
+.tb-mini-bar{width:24px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;flex-shrink:0}
+.tb-mini-bar-fill{height:100%;border-radius:2px;transition:width .3s ease}
 #mid{display:flex;flex:1;overflow:hidden}
 #sidebar{width:280px;min-width:180px;max-width:500px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;position:relative;flex-shrink:0}
 #sidebar::-webkit-scrollbar{width:3px}#sidebar::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
@@ -31,7 +40,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #sidebar-right-resize{position:absolute;top:0;left:-3px;width:6px;height:100%;cursor:col-resize;z-index:10;transition:background .15s}
 #sidebar-right-resize:hover,#sidebar-right-resize.dragging{background:var(--blue)}
 .sb-section{padding:10px 14px;border-bottom:1px solid var(--border)}
-.sb-title{font-size:15px;font-weight:600;color:var(--blue)}.sb-sub{font-size:11px;color:var(--text3);margin-top:2px}
+.sb-title{font-size:15px;font-weight:600;color:#fff}.sb-sub{font-size:11px;color:var(--text3);margin-top:2px}
 .speed-val{font-size:15px;font-weight:600;margin:1px 0;letter-spacing:0.5px}
 .speed-val.dl{color:var(--cyan)}.speed-val.ul{color:var(--magenta)}
 .speed-total{font-size:11px;color:var(--text2);margin-top:2px}
@@ -128,35 +137,35 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 <body>
 <div id="app">
   <div id="top-bar">
-    <div class="tb-item"><span class="tb-label">DL</span><span class="tb-val" id="tb-dl" style="color:var(--cyan)">0 KB/s</span></div>
-    <div class="tb-item"><span class="tb-label">UL</span><span class="tb-val" id="tb-ul" style="color:var(--magenta)">0 KB/s</span></div>
-    <div class="tb-sep"></div>
-    <div class="tb-item"><span class="tb-label">CPU</span><span class="tb-val" id="tb-cpu">0%</span></div>
-    <div class="tb-item"><span class="tb-label">RAM</span><span class="tb-val" id="tb-ram">0%</span></div>
-    <div class="tb-item" id="tb-cpu-temp-wrap" style="display:none"><span class="tb-label">CPU</span><span class="tb-val" id="tb-cpu-temp">0C</span></div>
-    <div class="tb-item" id="tb-gpu-temp-wrap" style="display:none"><span class="tb-label">GPU</span><span class="tb-val" id="tb-gpu-temp">0C</span></div>
-    <div class="tb-sep"></div>
-    <div class="tb-item"><span class="tb-label">WiFi</span><span class="tb-val" id="tb-wifi">--</span></div>
-    <div class="tb-item"><span class="tb-label">VPN</span><span class="tb-val" id="tb-vpn" style="color:var(--text3)">Off</span></div>
-    <div class="tb-sep"></div>
-    <div class="tb-item" id="tb-home-wrap"><span class="tb-label">Your PC</span><span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span></div>
-    <div class="tb-sep"></div>
-    <div class="tb-item"><button onclick="scanLan()">Scan LAN</button></div>
-    <div class="tb-item"><button onclick="runSpeedtest()">Speedtest</button></div>
-    <div class="tb-item"><button onclick="takeScreenshot()">Screenshot</button></div>
-    <div class="tb-item"><button onclick="exportCsv()">CSV</button></div>
-    <div class="tb-item"><button onclick="exportJson()">JSON</button></div>
-    <div class="tb-item"><button onclick="generateReport()">Report</button></div>
-    <div class="tb-item"><button onclick="openSettings()">Settings</button></div>
-    <div class="tb-sep"></div>
-    <div class="tb-item">
-      <span class="kb"><kbd>Ctrl+F</kbd> Filter</span>
-      <span class="kb"><kbd>Ctrl+E</kbd> CSV</span>
-      <span class="kb"><kbd>Ctrl+S</kbd> Snap</span>
-      <span class="kb"><kbd>Esc</kbd> Close</span>
+    <div id="top-bar-resize"></div>
+    <div class="tb-sec">
+      <div class="tb-item"><span class="tb-label">CPU</span><span class="tb-val" id="tb-cpu">0%</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-cpu-bar" style="width:0%;background:var(--green)"></div></div></div>
+      <div class="tb-item"><span class="tb-label">RAM</span><span class="tb-val" id="tb-ram">0%</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-ram-bar" style="width:0%;background:var(--green)"></div></div></div>
+      <div class="tb-item" id="tb-cpu-temp-wrap" style="display:none"><span class="tb-label">CPU T</span><span class="tb-val" id="tb-cpu-temp">0C</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-cpu-temp-bar" style="width:0%;background:var(--green)"></div></div></div>
+      <div class="tb-item" id="tb-gpu-temp-wrap" style="display:none"><span class="tb-label">GPU T</span><span class="tb-val" id="tb-gpu-temp">0C</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-gpu-temp-bar" style="width:0%;background:var(--green)"></div></div></div>
+      <div class="tb-item"><span class="tb-label">Disk</span><span class="tb-val" id="tb-disk">--</span></div>
     </div>
-    <div class="tb-item" style="margin-left:auto">
-      <div class="lookup-row" style="margin:0"><input id="lookup-input" placeholder="IP or domain..." style="width:140px"/><button onclick="doLookup()">Locate</button></div>
+    <div class="tb-sec">
+      <div class="tb-item"><span class="tb-label">WiFi</span><span class="tb-val" id="tb-wifi">--</span></div>
+      <div class="tb-item"><span class="tb-label">VPN</span><span class="tb-val" id="tb-vpn" style="color:var(--text3)">Off</span></div>
+    </div>
+    <div class="tb-sec">
+      <div class="tb-item" id="tb-home-wrap"><span class="tb-label">Your PC</span><span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span><span class="tb-sub" id="tb-home-sub"></span><button onclick="fallbackPinLocation()" style="margin-top:1px;font-size:8px;padding:0 4px">Pin</button></div>
+    </div>
+    <div class="tb-sec">
+      <div class="tb-item"><button onclick="scanLan()">LAN</button></div>
+      <div class="tb-item"><button onclick="runSpeedtest()">Speed</button></div>
+      <div class="tb-item"><button onclick="takeScreenshot()">Snap</button></div>
+      <div class="tb-item"><button onclick="exportCsv()">CSV</button></div>
+      <div class="tb-item"><button onclick="exportJson()">JSON</button></div>
+      <div class="tb-item"><button onclick="generateReport()">Report</button></div>
+      <div class="tb-item"><button onclick="openSettings()">Settings</button></div>
+    </div>
+    <div class="tb-sec">
+      <div class="kb"><kbd>Ctrl+F</kbd>Filter <kbd>Ctrl+E</kbd>CSV <kbd>Ctrl+S</kbd>Snap <kbd>Esc</kbd>Close</div>
+    </div>
+    <div class="tb-sec">
+      <div class="lookup-row" style="margin:0"><input id="lookup-input" placeholder="IP or domain..." style="width:120px;padding:2px 6px;font-size:10px"/><button onclick="doLookup()" style="padding:2px 8px;font-size:9px">Locate</button></div>
     </div>
   </div>
   <div id="mid">
@@ -164,8 +173,8 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     <div id="sidebar-resize"></div>
     <div class="sb-section"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="sb-title">Network Monitor</div><div class="sb-sub">Click any dot or line for details</div></div></div></div>
     <div class="sb-section">
-      <div class="speed-val dl" id="sp-dl">0 KB/s</div><div style="font-size:10px;color:var(--text3)">download</div>
-      <div class="speed-val ul" id="sp-ul">0 KB/s</div><div style="font-size:10px;color:var(--text3)">upload</div>
+      <div class="speed-val dl" id="sp-dl">0 KB/s</div><div style="font-size:10px;color:var(--text3)" id="dl-label">download</div>
+      <div class="speed-val ul" id="sp-ul">0 KB/s</div><div style="font-size:10px;color:var(--text3)" id="ul-label">upload</div>
       <div class="speed-total" id="sp-tot"></div>
     </div>
     <div class="sb-section">
@@ -196,11 +205,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="stat-row"><span class="label">Avg Latency</span><span class="value" id="st-rtt" style="color:var(--orange)">0 ms</span></div>
     </div>
     <div class="sb-section">
-      <div class="section-title">Your PC</div>
-      <div class="home-box" id="home-info">Locating...</div>
-      <div style="margin-top:6px"><button onclick="fallbackPinLocation()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Pin Location</button></div>
-    </div>
-    <div class="sb-section">
       <div class="section-title">Ping Monitor</div>
       <div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div>
       <div id="st-ping-results"></div>
@@ -221,7 +225,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   </div>
   <div id="sidebar-right">
     <div id="sidebar-right-resize"></div>
-    <div class="sb-section"><div class="section-title">System</div><div id="st-system"></div></div>
     <div class="sb-section" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
     <div class="sb-section"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
     <div class="sb-section"><div class="section-title">States</div><div id="st-states"></div></div>
@@ -255,6 +258,9 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   <div class="set-group"><div class="set-group-title">Display</div>
     <div class="set-row"><label>Show Labels</label><div class="set-switch" id="s-sl" onclick="this.classList.toggle('on')"></div></div>
     <div class="set-row"><label>True Dark Mode</label><div class="set-switch" id="s-td" onclick="toggleTrueDark()"></div></div>
+    <div class="set-row"><label>Text Color</label><input type="color" id="s-tc" value="#cdd3df"></div>
+    <div class="set-row"><label>DL Label</label><input type="text" id="s-dl-label" value="download" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></div>
+    <div class="set-row"><label>UL Label</label><input type="text" id="s-ul-label" value="upload" style="width:80px;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:3px 6px;border-radius:4px;font-family:inherit;font-size:11px"></div>
   </div>
   <div class="set-group"><div class="set-group-title">Visual Effects</div>
     <div class="set-row"><label>Flow Animation</label><div class="set-switch on" id="s-flow" onclick="this.classList.toggle('on')"></div></div>
@@ -285,10 +291,10 @@ var TILES = {
 };
 
 var SVC_ICONS = {
-  'YouTube':'\u25B6','Discord':'\uD83D\uDCAC','Spotify':'\uD83C\uDFB5','Netflix':'\uD83D\uDCFA',
-  'Reddit':'\uD83D\uDCCC','GitHub':'\uD83D\uDCBB','Google':'\uD83D\uDD0D','Microsoft':'\uD83E\uDEAA',
-  'Amazon':'\uD83D\uDCE6','Apple':'\uD83C\uDF4E','Cloudflare':'\u2601','Telegram':'\u2708',
-  'Steam':'\uD83C\uDFAE','Zoom':'\uD83D\uDCF9','Slack':'\uD83D\uDCBC','VS Code':'\u2328','Default':'\uD83C\uDF10'
+  'YouTube':'YT','Discord':'DC','Spotify':'SP','Netflix':'NF',
+  'Reddit':'RD','GitHub':'GH','Google':'GG','Microsoft':'MS',
+  'Amazon':'AZ','Apple':'AP','Cloudflare':'CF','Telegram':'TG',
+  'Steam':'ST','Zoom':'ZM','Slack':'SL','VS Code':'VS','Default':'--'
 };
 function getSvcIcon(s) { return SVC_ICONS[s] || SVC_ICONS['Default']; }
 
@@ -673,7 +679,7 @@ async function getUnknownApps() {
   }
   var h = '';
   for (var i = 0; i < Math.min(apps.length, 10); i++) {
-    h += '<div class="proc-item"><span class="pname">\u26A0 ' + apps[i] + '</span></div>';
+    h += '<div class="proc-item"><span class="pname">' + apps[i] + '</span></div>';
   }
   document.getElementById('st-unknown').innerHTML = h;
 }
@@ -726,7 +732,7 @@ window.showAlert = function(alert) {
   var t = document.getElementById('alert-toast');
   var el = document.createElement('div');
   el.className = 'alert-toast';
-  el.innerHTML = '<div class="at-dir">\u26A0 ' + alert.direction + ' Alert</div><div class="at-spd">Speed: ' + alert.speed + ' KB/s (threshold: ' + alert.threshold + ' KB/s)</div>';
+  el.innerHTML = '<div class="at-dir">' + alert.direction + ' Alert</div><div class="at-spd">Speed: ' + alert.speed + ' KB/s (threshold: ' + alert.threshold + ' KB/s)</div>';
   t.appendChild(el);
   setTimeout(function() { el.style.opacity = '0'; setTimeout(function() { el.remove(); }, 300); }, 5000);
 };
@@ -837,8 +843,6 @@ window.pushUpdate = function(d) {
   if (d.speed) {
     document.getElementById('sp-dl').textContent = fmtSpd(d.speed.dl || 0);
     document.getElementById('sp-ul').textContent = fmtSpd(d.speed.ul || 0);
-    document.getElementById('tb-dl').textContent = fmtSpd(d.speed.dl || 0);
-    document.getElementById('tb-ul').textContent = fmtSpd(d.speed.ul || 0);
   }
   if (d.totals) {
     document.getElementById('sp-tot').textContent = 'Sent ' + fmtB(d.totals.sent || 0) + ' / Recv ' + fmtB(d.totals.recv || 0);
@@ -914,8 +918,8 @@ window.pushUpdate = function(d) {
     }
     document.getElementById('st-talkers').innerHTML = th || '<div style="font-size:11px;color:var(--text3)">No traffic yet</div>';
 
-    document.getElementById('home-info').innerHTML = 'IP: ' + (homeInfo.ip || '?') + '<br>Location: ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?') + '<br>ISP: ' + (homeInfo.isp || '?');
     document.getElementById('tb-home').textContent = (homeInfo.ip || '?') + ' - ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?');
+    document.getElementById('tb-home-sub').textContent = 'ISP: ' + (homeInfo.isp || '?');
 
     for (var m = 0; m < d.conns.length; m++) {
       var ck = d.conns[m].ip + ':' + d.conns[m].port;
@@ -1039,43 +1043,37 @@ function updateSystemStats(sys) {
   var ramCol = sys.ram_pct < 50 ? 'var(--green)' : sys.ram_pct < 80 ? 'var(--orange)' : 'var(--red)';
   document.getElementById('tb-cpu').textContent = sys.cpu + '%';
   document.getElementById('tb-cpu').style.color = cpuCol;
+  document.getElementById('tb-cpu-bar').style.width = sys.cpu + '%';
+  document.getElementById('tb-cpu-bar').style.background = cpuCol;
   document.getElementById('tb-ram').textContent = sys.ram_pct + '%';
   document.getElementById('tb-ram').style.color = ramCol;
+  document.getElementById('tb-ram-bar').style.width = sys.ram_pct + '%';
+  document.getElementById('tb-ram-bar').style.background = ramCol;
+  document.getElementById('tb-disk').textContent = sys.disk_read.toFixed(1) + ' / ' + sys.disk_write.toFixed(1) + ' MB/s';
   if (sys.cpu_temp > 0) {
     var tCol = sys.cpu_temp < 60 ? 'var(--green)' : sys.cpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
+    var tPct = Math.min(100, sys.cpu_temp);
     document.getElementById('tb-cpu-temp-wrap').style.display = '';
     document.getElementById('tb-cpu-temp').textContent = sys.cpu_temp + 'C';
     document.getElementById('tb-cpu-temp').style.color = tCol;
+    document.getElementById('tb-cpu-temp-bar').style.width = tPct + '%';
+    document.getElementById('tb-cpu-temp-bar').style.background = tCol;
   }
   if (sys.gpu_temp > 0) {
     var gCol = sys.gpu_temp < 60 ? 'var(--green)' : sys.gpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
+    var gPct = Math.min(100, sys.gpu_temp);
     document.getElementById('tb-gpu-temp-wrap').style.display = '';
     document.getElementById('tb-gpu-temp').textContent = sys.gpu_temp + 'C';
     document.getElementById('tb-gpu-temp').style.color = gCol;
+    document.getElementById('tb-gpu-temp-bar').style.width = gPct + '%';
+    document.getElementById('tb-gpu-temp-bar').style.background = gCol;
   }
-  var html = '<div class="stat-row"><span class="label">CPU</span><span class="value" style="color:' + cpuCol + '">' + sys.cpu + '%</span></div>';
-  html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.cpu + '%;background:' + cpuCol + '"></div></div>';
-  html += '<div class="stat-row"><span class="label">RAM</span><span class="value" style="color:' + ramCol + '">' + fmtB(sys.ram_used) + ' / ' + fmtB(sys.ram_total) + '</span></div>';
-  html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.ram_pct + '%;background:' + ramCol + '"></div></div>';
-  if (sys.swap_total > 0) {
-    html += '<div class="stat-row"><span class="label">Swap</span><span class="value">' + fmtB(sys.swap_used) + '</span></div>';
-    html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.swap_pct + '%;background:var(--text3)"></div></div>';
-  }
-  html += '<div class="stat-row"><span class="label">Disk R/W</span><span class="value">' + sys.disk_read.toFixed(1) + ' / ' + sys.disk_write.toFixed(1) + ' MB/s</span></div>';
-  if (sys.cpu_temp > 0) {
-    var tCol = sys.cpu_temp < 60 ? 'var(--green)' : sys.cpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
-    html += '<div class="stat-row"><span class="label">CPU Temp</span><span class="value" style="color:' + tCol + '">' + sys.cpu_temp + ' C</span></div>';
-  }
-  if (sys.gpu_temp > 0) {
-    var gCol = sys.gpu_temp < 60 ? 'var(--green)' : sys.gpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
-    html += '<div class="stat-row"><span class="label">GPU Temp</span><span class="value" style="color:' + gCol + '">' + sys.gpu_temp + ' C</span></div>';
-  }
-  document.getElementById('st-system').innerHTML = html;
 }
 function updateWifiStats(wifi) {
   if (!wifi) return;
+  var wifiEl = document.getElementById('st-wifi');
   if (!wifi.ssid && wifi.signal === 0) {
-    document.getElementById('st-wifi').innerHTML = '<div style="font-size:11px;color:var(--text3)">Not connected to WiFi</div>';
+    if (wifiEl) wifiEl.innerHTML = '<div style="font-size:11px;color:var(--text3)">Not connected to WiFi</div>';
     document.getElementById('tb-wifi').textContent = 'None';
     document.getElementById('tb-wifi').style.color = 'var(--text3)';
     return;
@@ -1087,7 +1085,7 @@ function updateWifiStats(wifi) {
   html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + pct + '%;background:' + sigCol + '"></div></div>';
   if (wifi.freq) html += '<div class="stat-row"><span class="label">Frequency</span><span class="value">' + wifi.freq + '</span></div>';
   if (wifi.speed) html += '<div class="stat-row"><span class="label">Speed</span><span class="value">' + wifi.speed + ' Mb/s</span></div>';
-  document.getElementById('st-wifi').innerHTML = html;
+  if (wifiEl) wifiEl.innerHTML = html;
   document.getElementById('tb-wifi').textContent = wifi.ssid + ' ' + wifi.signal + 'dBm';
   document.getElementById('tb-wifi').style.color = sigCol;
 }
@@ -1137,7 +1135,7 @@ function updateProcBw(pbw) {
   var h = '';
   for (var i = 0; i < Math.min(items.length, 10); i++) {
     var it = items[i];
-    h += '<div class="svc-item"><span class="svc-name">' + getSvcIcon(it.name) + ' ' + it.name + '</span><span class="svc-bytes">' + fmtSpd(it.dl) + ' ↓ / ' + fmtSpd(it.ul) + ' ↑</span></div>';
+    h += '<div class="svc-item"><span class="svc-name">' + getSvcIcon(it.name) + ' ' + it.name + '</span><span class="svc-bytes">' + fmtSpd(it.dl) + ' DL / ' + fmtSpd(it.ul) + ' UL</span></div>';
   }
   document.getElementById('st-proc-bw').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No active processes</div>';
 }
@@ -1161,7 +1159,8 @@ async function loadDataUsage(period) {
 }
 function fallbackPinLocation() {
   if (homeInfo.lat != null) {
-    document.getElementById('home-info').innerHTML = 'Pinned: ' + homeInfo.lat.toFixed(4) + ', ' + homeInfo.lon.toFixed(4) + '<br>Source: IP geolocation';
+    document.getElementById('tb-home').textContent = 'Pinned ' + homeInfo.lat.toFixed(4) + ', ' + homeInfo.lon.toFixed(4);
+    document.getElementById('tb-home-sub').textContent = (homeInfo.ip || '') + ' | ' + (homeInfo.isp || '');
     map.setView([homeInfo.lat, homeInfo.lon], map.getZoom());
     renderOverlay();
   }
@@ -1172,7 +1171,8 @@ function fallbackPinLocation() {
 window.pushHomeUpdate = function(h) {
   if (!h || h.lat == null) return;
   homeInfo = h;
-  document.getElementById('home-info').innerHTML = 'IP: ' + h.ip + '<br>Location: ' + h.city + ', ' + h.country + '<br>ISP: ' + h.isp;
+  document.getElementById('tb-home').textContent = (h.ip || '?') + ' - ' + h.city + ', ' + h.country;
+  document.getElementById('tb-home-sub').textContent = 'ISP: ' + (h.isp || '?');
   if (map && lastConns.length) {
     map.setView([h.lat, h.lon], Math.max(map.getZoom(), 3), { animate: false });
   }
@@ -1191,6 +1191,9 @@ function openSettings() {
   document.getElementById('s-hc').value = settings.home_dot_color || '#98c379';
   document.getElementById('s-sl').classList.toggle('on', !!settings.show_labels);
   document.getElementById('s-td').classList.toggle('on', settings.true_dark === true);
+  document.getElementById('s-tc').value = settings.text_color || '#cdd3df';
+  document.getElementById('s-dl-label').value = settings.dl_label || 'download';
+  document.getElementById('s-ul-label').value = settings.ul_label || 'upload';
   document.getElementById('s-flow').classList.toggle('on', settings.flow_animation !== false);
   document.getElementById('s-icons').classList.toggle('on', settings.service_icons !== false);
   document.getElementById('s-cluster').classList.toggle('on', settings.map_clustering === true);
@@ -1211,6 +1214,11 @@ function applyTheme(on) {
   var r = document.documentElement;
   for (var k in v) r.style.setProperty(v[k] ? k : k, v[k]);
 }
+function applyTextColor(c) {
+  if (c) {
+    document.documentElement.style.setProperty('--text', c);
+  }
+}
 function toggleTrueDark() {
   document.getElementById('s-td').classList.toggle('on');
   var on = document.getElementById('s-td').classList.contains('on');
@@ -1227,7 +1235,13 @@ async function applySettings() {
   settings.home_dot_color = document.getElementById('s-hc').value;
   settings.show_labels = document.getElementById('s-sl').classList.contains('on');
   settings.true_dark = document.getElementById('s-td').classList.contains('on');
+  settings.text_color = document.getElementById('s-tc').value;
+  settings.dl_label = document.getElementById('s-dl-label').value || 'download';
+  settings.ul_label = document.getElementById('s-ul-label').value || 'upload';
   applyTheme(settings.true_dark);
+  applyTextColor(settings.text_color);
+  document.getElementById('dl-label').textContent = settings.dl_label;
+  document.getElementById('ul-label').textContent = settings.ul_label;
   settings.flow_animation = document.getElementById('s-flow').classList.contains('on');
   settings.service_icons = document.getElementById('s-icons').classList.contains('on');
   settings.map_clustering = document.getElementById('s-cluster').classList.contains('on');
@@ -1244,8 +1258,11 @@ async function applySettings() {
 }
 
 async function resetSettings() {
-  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, true_dark:false, map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true };
+  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, true_dark:false, text_color:'', dl_label:'download', ul_label:'upload', map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true };
   applyTheme(false);
+  applyTextColor('');
+  document.getElementById('dl-label').textContent = 'download';
+  document.getElementById('ul-label').textContent = 'upload';
   if (window.pywebview) await pywebview.api.save_settings(JSON.stringify(settings));
   closeSettings();
   if (lastConns.length) renderOverlay();
@@ -1357,6 +1374,9 @@ async function boot() {
   document.getElementById('map-theme').value = settings.map_theme || 'dark';
   changeTheme(settings.map_theme || 'dark', false);
   if (settings.true_dark) applyTheme(true);
+  if (settings.text_color) applyTextColor(settings.text_color);
+  if (settings.dl_label) document.getElementById('dl-label').textContent = settings.dl_label;
+  if (settings.ul_label) document.getElementById('ul-label').textContent = settings.ul_label;
   map.invalidateSize();
 
   var data = JSON.parse(await pywebview.api.get_connections());
@@ -1369,7 +1389,8 @@ async function boot() {
     updateTable(lastConns);
     updateServiceSummary(lastConns);
     document.getElementById('bh-count').textContent = lastConns.length;
-    document.getElementById('home-info').innerHTML = 'IP: ' + (homeInfo.ip || '?') + '<br>Location: ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?') + '<br>ISP: ' + (homeInfo.isp || '?');
+    document.getElementById('tb-home').textContent = (homeInfo.ip || '?') + ' - ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?');
+    document.getElementById('tb-home-sub').textContent = 'ISP: ' + (homeInfo.isp || '?');
   }
 
   getNetInterfaces();
@@ -1383,6 +1404,36 @@ async function boot() {
   loadDataUsage('day');
   getLanDevices();
   setInterval(getLanDevices, 15000);
+
+  // Continuous animation loop for flow animation
+  (function animLoop() {
+    requestAnimationFrame(function() {
+      if (settings.flow_animation !== false) renderOverlay();
+      animLoop();
+    });
+  })();
+
+  // Top bar resize
+  (function() {
+    var handle = document.getElementById('top-bar-resize');
+    var bar = document.getElementById('top-bar');
+    if (!handle || !bar) return;
+    var dragging = false, startY, startH;
+    handle.addEventListener('mousedown', function(e) {
+      dragging = true; startY = e.clientY; startH = bar.offsetHeight;
+      handle.classList.add('dragging');
+      e.preventDefault();
+    });
+    document.addEventListener('mousemove', function(e) {
+      if (!dragging) return;
+      var newH = Math.max(20, Math.min(150, startH + (e.clientY - startY)));
+      bar.style.minHeight = newH + 'px';
+    });
+    document.addEventListener('mouseup', function() {
+      if (dragging) { dragging = false; handle.classList.remove('dragging'); }
+    });
+  })();
+
   } catch(e) { console.error('BOOT FAIL:', e); }
 }
 

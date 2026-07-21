@@ -25,5 +25,8 @@
   "live_waveform": true,
   "speedometer": false,
   "flow_particles": true,
-  "true_dark": true
+  "true_dark": true,
+  "text_color": "#ffffff",
+  "dl_label": "download",
+  "ul_label": "upload1"
 }
