@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+geoip_cache.json
+settings.json
+data/
+recordings/
+reports/
+*.log

@@ -11,7 +11,7 @@
   "alert_cooldown": 30,
   "notifications": true,
   "record_sessions": false,
-  "flow_animation": false,
+  "flow_animation": true,
   "connection_cards": true,
   "service_icons": true,
   "map_clustering": false,
@@ -24,5 +24,6 @@
   "animated_counters": true,
   "live_waveform": true,
   "speedometer": false,
-  "flow_particles": true
+  "flow_particles": true,
+  "true_dark": true
 }

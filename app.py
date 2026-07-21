@@ -1054,6 +1054,355 @@ class ConnectionTracker:
         self.running = False
 
 
+# ----------------- NEW MONITORS -----------------
+
+class ProcessBandwidthTracker:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.prev_time = time.time()
+        self.data = {}
+
+    def update(self, conns_list):
+        now = time.time()
+        dt = now - self.prev_time
+        if dt <= 0:
+            return
+        proc_bytes = {}
+        for c in conns_list:
+            p = c.get("proc", "?")
+            if p not in proc_bytes:
+                proc_bytes[p] = {"sent": 0, "recv": 0}
+            proc_bytes[p]["sent"] += c.get("spd_up", 0) * dt
+            proc_bytes[p]["recv"] += c.get("spd_dn", 0) * dt
+        with self.lock:
+            for p, b in proc_bytes.items():
+                if p not in self.data:
+                    self.data[p] = {"sent": 0, "recv": 0, "dl": 0, "ul": 0}
+                self.data[p]["dl"] = b["recv"] / dt / 1024
+                self.data[p]["ul"] = b["sent"] / dt / 1024
+                self.data[p]["sent"] += int(b["sent"])
+                self.data[p]["recv"] += int(b["recv"])
+            gone = set(self.data) - set(proc_bytes)
+            for p in gone:
+                self.data[p]["dl"] = 0
+                self.data[p]["ul"] = 0
+        self.prev_time = now
+
+    def get(self):
+        with self.lock:
+            return dict(self.data)
+
+
+class SystemMonitor:
+    def __init__(self):
+        psutil.cpu_percent(interval=0)
+        self.disk_io_prev = psutil.disk_io_counters() if hasattr(psutil, 'disk_io_counters') else None
+        self.disk_prev_time = time.time()
+        self.cpu_temp = 0
+        self.gpu_temp = 0
+
+    def _read_temps(self):
+        try:
+            temps = psutil.sensors_temperatures()
+            for name in ("coretemp", "k10temp", "cpu_thermal", "acpitz"):
+                if name in temps and temps[name]:
+                    vals = [t.current for t in temps[name] if t.current > 0]
+                    if vals:
+                        self.cpu_temp = round(max(vals), 1)
+                        break
+            for name in ("amdgpu", "nvidia", "nouveau", "radeon", "nvidia_gpu", "gpu_thermal"):
+                if name in temps and temps[name]:
+                    vals = [t.current for t in temps[name] if t.current > 0]
+                    if vals:
+                        self.gpu_temp = round(max(vals), 1)
+                        break
+            if self.gpu_temp == 0:
+                try:
+                    out = subprocess.check_output(
+                        ["nvidia-smi", "--query-gpu=temperature.gpu", "--format=csv,noheader,nounits"],
+                        stderr=subprocess.DEVNULL, timeout=3
+                    ).decode().strip()
+                    if out:
+                        self.gpu_temp = float(out.splitlines()[0])
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    def get(self):
+        self._read_temps()
+        cpu = psutil.cpu_percent(interval=0)
+        vm = psutil.virtual_memory()
+        swap = psutil.swap_memory()
+        disk_read = disk_write = 0.0
+        if self.disk_io_prev and hasattr(psutil, 'disk_io_counters'):
+            try:
+                dio = psutil.disk_io_counters()
+                dt = time.time() - self.disk_prev_time
+                if dt > 0:
+                    disk_read = (dio.read_bytes - self.disk_io_prev.read_bytes) / dt / 1024 / 1024
+                    disk_write = (dio.write_bytes - self.disk_io_prev.write_bytes) / dt / 1024 / 1024
+                self.disk_io_prev = dio
+                self.disk_prev_time = time.time()
+            except Exception:
+                pass
+        return {
+            "cpu": round(cpu, 1),
+            "ram_used": vm.used,
+            "ram_total": vm.total,
+            "ram_pct": round(vm.percent, 1),
+            "swap_used": swap.used,
+            "swap_total": swap.total,
+            "swap_pct": round(swap.percent, 1),
+            "disk_read": round(disk_read, 1),
+            "disk_write": round(disk_write, 1),
+            "cpu_temp": self.cpu_temp,
+            "gpu_temp": self.gpu_temp,
+        }
+
+
+class WiFiMonitor:
+    def __init__(self):
+        self.signal = 0
+        self.ssid = ""
+        self.freq = ""
+        self.speed = ""
+
+    def update(self):
+        try:
+            out = subprocess.check_output(
+                ["iwconfig"], stderr=subprocess.DEVNULL, timeout=2
+            ).decode("utf-8", errors="ignore")
+            sig = re.search(r"Signal level=(-?\d+)", out)
+            if sig:
+                self.signal = int(sig.group(1))
+            essid = re.search(r'ESSID:"(.+?)"', out)
+            if essid:
+                self.ssid = essid.group(1)
+            freq = re.search(r"Frequency:(\S+)", out)
+            if freq:
+                self.freq = freq.group(1)
+            bitrate = re.search(r"Bit Rate=(\S+)", out)
+            if bitrate:
+                self.speed = bitrate.group(1)
+        except Exception:
+            try:
+                wpath = "/proc/net/wireless"
+                if os.path.exists(wpath):
+                    with open(wpath) as f:
+                        lines = f.readlines()
+                    if len(lines) > 1:
+                        parts = lines[1].split()
+                        if len(parts) >= 4:
+                            self.signal = int(parts[2])
+            except Exception:
+                pass
+
+    def get(self):
+        self.update()
+        return {"signal": self.signal, "ssid": self.ssid, "freq": self.freq, "speed": self.speed}
+
+
+class PingMonitor:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.targets = {}
+        self.history = {}
+
+    def ping(self, host, count=3):
+        try:
+            out = subprocess.check_output(
+                ["ping", "-c", str(count), "-W", "2", host],
+                stderr=subprocess.DEVNULL, timeout=10
+            ).decode("utf-8", errors="ignore")
+            avg = re.search(r"rtt min/avg/max/mdev = [\d.]+/([\d.]+)/", out)
+            loss = re.search(r"(\d+)% packet loss", out)
+            jitter = re.search(r"mdev = ([\d.]+) ms", out)
+            rtt = float(avg.group(1)) if avg else 0
+            pkt_loss = float(loss.group(1)) if loss else 100
+            jitt = float(jitter.group(1)) if jitter else 0
+            return {"rtt": rtt, "loss": pkt_loss, "jitter": jitt}
+        except Exception:
+            return {"rtt": 0, "loss": 100, "jitter": 0}
+
+    def track(self, host):
+        threading.Thread(target=self._track_host, args=(host,), daemon=True).start()
+
+    def _track_host(self, host):
+        result = self.ping(host)
+        with self.lock:
+            if host not in self.history:
+                self.history[host] = deque(maxlen=30)
+            self.history[host].append({"time": time.time(), **result})
+            self.targets[host] = result
+
+    def get(self):
+        with self.lock:
+            return {
+                "targets": dict(self.targets),
+                "history": {k: list(v) for k, v in self.history.items()},
+            }
+
+
+class VPNDetector:
+    VPN_PATTERNS = {"tun", "wg", "ppp", "tap", "vpn", "wireguard", "tailscale", "zerotier"}
+
+    def detect(self):
+        interfaces = psutil.net_if_stats()
+        vpn_names = []
+        for name in interfaces:
+            if any(p in name.lower() for p in self.VPN_PATTERNS):
+                vpn_names.append(name)
+        if not vpn_names:
+            try:
+                out = subprocess.check_output(
+                    ["ip", "link", "show"], stderr=subprocess.DEVNULL, timeout=2
+                ).decode("utf-8", errors="ignore")
+                for line in out.splitlines():
+                    m = re.search(r"\d+:\s+(\S+?):", line)
+                    if m:
+                        iname = m.group(1)
+                        if any(p in iname.lower() for p in self.VPN_PATTERNS):
+                            if iname not in vpn_names:
+                                vpn_names.append(iname)
+            except Exception:
+                pass
+        active = False
+        for n in vpn_names:
+            st = interfaces.get(n)
+            if st and st.isup:
+                active = True
+                break
+        return {"active": active, "interfaces": vpn_names}
+
+
+class PortScanDetector:
+    def __init__(self, threshold=15):
+        self.lock = threading.Lock()
+        self.connections = {}
+        self.alerts = deque(maxlen=100)
+        self.threshold = threshold
+
+    def update(self, conns_list):
+        now = time.time()
+        ip_conns = {}
+        for c in conns_list:
+            ip = c.get("ip", "")
+            port = c.get("port", 0)
+            if ip and port:
+                if ip not in ip_conns:
+                    ip_conns[ip] = set()
+                ip_conns[ip].add(port)
+        with self.lock:
+            self.connections = {}
+            for ip, ports in ip_conns.items():
+                self.connections[ip] = {"ports": len(ports), "list": sorted(ports)[:20]}
+                if len(ports) >= self.threshold:
+                    exists = any(a["ip"] == ip and now - a["time"] < 60 for a in self.alerts)
+                    if not exists:
+                        self.alerts.append({
+                            "ip": ip, "ports": len(ports),
+                            "time": now, "sample": sorted(ports)[:10],
+                        })
+
+    def get(self):
+        with self.lock:
+            return {
+                "scans": [a for a in self.alerts if time.time() - a["time"] < 300],
+                "top_targets": sorted(self.connections.items(),
+                                       key=lambda x: x[1]["ports"], reverse=True)[:10],
+            }
+
+
+class DNSQueryLogger:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.queries = deque(maxlen=200)
+        self.proc = None
+        self._start_capture()
+
+    def _start_capture(self):
+        def _run():
+            try:
+                self.proc = subprocess.Popen(
+                    ["tshark", "-i", "any", "-f", "port 53", "-T", "fields",
+                     "-e", "frame.time", "-e", "dns.qry.name", "-e", "dns.flags.response",
+                     "-l"],
+                    stdout=subprocess.PIPE, stderr=subprocess.DEVNULL, text=True
+                )
+                for line in self.proc.stdout:
+                    line = line.strip()
+                    if not line:
+                        continue
+                    parts = line.split("\t")
+                    if len(parts) >= 3 and parts[1] and parts[2] == "0":
+                        with self.lock:
+                            self.queries.append({
+                                "time": time.time(),
+                                "domain": parts[1],
+                                "type": "query",
+                            })
+            except FileNotFoundError:
+                pass
+            except Exception:
+                pass
+        threading.Thread(target=_run, daemon=True).start()
+
+    def get(self):
+        with self.lock:
+            return list(self.queries)[-50:]
+
+
+class LANDiscovery:
+    def __init__(self):
+        self.lock = threading.Lock()
+        self.devices = []
+        self.scanning = False
+
+    def scan(self):
+        if self.scanning:
+            return
+        self.scanning = True
+        threading.Thread(target=self._scan, daemon=True).start()
+
+    def _scan(self):
+        devices = []
+        try:
+            out = subprocess.check_output(
+                ["arp-scan", "--localnet", "--retry=1", "--timeout=500"],
+                stderr=subprocess.DEVNULL, timeout=15
+            ).decode("utf-8", errors="ignore")
+            for line in out.splitlines():
+                m = re.match(r"([\d.]+)\s+([\da-fA-F:]{17})", line)
+                if m:
+                    ip, mac = m.group(1), m.group(2)
+                    try:
+                        h = socket.gethostbyaddr(ip)[0]
+                    except Exception:
+                        h = ""
+                    devices.append({"ip": ip, "mac": mac, "hostname": h})
+        except (FileNotFoundError, subprocess.TimeoutExpired):
+            try:
+                out = subprocess.check_output(
+                    ["ip", "neigh", "show"], stderr=subprocess.DEVNULL, timeout=5
+                ).decode("utf-8", errors="ignore")
+                for line in out.splitlines():
+                    parts = line.split()
+                    if len(parts) >= 5 and parts[3] == "REACHABLE":
+                        devices.append({"ip": parts[0], "mac": parts[4] if len(parts) > 4 else "", "hostname": ""})
+            except Exception:
+                pass
+        except Exception:
+            pass
+        with self.lock:
+            self.devices = devices
+        self.scanning = False
+
+    def get(self):
+        with self.lock:
+            return self.devices
+
+
 # ----------------- API BRIDGE -----------------
 class Api:
     def __init__(self):
@@ -1083,6 +1432,15 @@ class Api:
         self.resolver = IPResolver(self.geo, self._on_resolved)
         self.domain_resolver = DomainResolver(self.geo)
         self.tracker = ConnectionTracker(self.resolver, self.domain_resolver, self.process_cache, self.event_log)
+
+        self.proc_bw = ProcessBandwidthTracker()
+        self.sys_monitor = SystemMonitor()
+        self.wifi_monitor = WiFiMonitor()
+        self.ping_monitor = PingMonitor()
+        self.vpn_detector = VPNDetector()
+        self.port_scanner = PortScanDetector()
+        self.dns_logger = DNSQueryLogger()
+        self.lan_discovery = LANDiscovery()
 
         threading.Thread(target=self._resolve_home, daemon=True).start()
         threading.Thread(target=self._monitor, daemon=True).start()
@@ -1175,8 +1533,12 @@ class Api:
             tick += 1
             if tick % 10 == 0:
                 self.summary_tracker.update(io, dl, ul, conns_list)
+                self.proc_bw.update(conns_list)
+                self.port_scanner.update(conns_list)
                 if tick % 60 == 0:
                     self.summary_tracker.save()
+                if tick % 40 == 0:
+                    self.wifi_monitor.update()
 
             if self.session_recorder.is_recording():
                 self.session_recorder.record(conns_list, {"dl": dl, "ul": ul}, io)
@@ -1209,6 +1571,12 @@ class Api:
                 },
                 "process_details": self._get_process_details_batch(conns_list),
                 "recording": self.session_recorder.get_status(),
+                "proc_bw": self.proc_bw.get(),
+                "system": self.sys_monitor.get(),
+                "wifi": self.wifi_monitor.get(),
+                "vpn": self.vpn_detector.detect(),
+                "port_scans": self.port_scanner.get(),
+                "dns": self.dns_logger.get(),
             }
 
             if self.window:
@@ -1389,15 +1757,35 @@ class Api:
         return json.dumps(files)
 
     def take_screenshot(self):
+        return json.dumps({'ok': False, 'error': 'Use save_screenshot via JS'})
+
+    def save_screenshot(self, data_url):
         try:
+            import base64
             ts = datetime.now().strftime("%Y%m%d_%H%M%S")
             path = os.path.join(REPORTS_DIR, f"screenshot_{ts}.png")
-            if self.window:
-                self.window.screenshot(path)
-                return json.dumps({'ok': True, 'path': path})
+            header, encoded = data_url.split(",", 1)
+            raw = base64.b64decode(encoded)
+            with open(path, "wb") as f:
+                f.write(raw)
+            return json.dumps({'ok': True, 'path': path})
         except Exception as e:
             return json.dumps({'ok': False, 'error': str(e)})
-        return json.dumps({'ok': False})
+
+    def ping_host(self, host):
+        result = self.ping_monitor.ping(host)
+        self.ping_monitor.track(host)
+        return json.dumps(result)
+
+    def get_ping_data(self):
+        return json.dumps(self.ping_monitor.get())
+
+    def scan_lan(self):
+        self.lan_discovery.scan()
+        return json.dumps({"started": True})
+
+    def get_lan_devices(self):
+        return json.dumps(self.lan_discovery.get())
 
 
 # ----------------- MAIN -----------------

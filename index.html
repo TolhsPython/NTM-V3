@@ -5,9 +5,11 @@
 <title>Network Traffic Monitor</title>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 :root{--bg:#111318;--bg2:#181b22;--bg3:#1e2129;--bg4:#252830;--border:#2a2d35;--text:#cdd3df;--text2:#8b929e;--text3:#5c6370;--blue:#61afef;--cyan:#56b6c2;--green:#98c379;--red:#e06c75;--magenta:#c678dd;--orange:#d19a66;--yellow:#e5c07b}
+body.true-dark, html.dark-theme{--bg:#000000;--bg2:#0a0a0a;--bg3:#111111;--bg4:#1a1a1a;--border:#222222;--text:#e0e0e0;--text2:#888888;--text3:#555555;--blue:#5599ee;--cyan:#44aaaa;--green:#66aa55;--red:#cc4455;--magenta:#aa66cc;--orange:#bb8844;--yellow:#ccaa44}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:13px}
 #app{display:flex;height:100vh;width:100vw}
 #sidebar{width:280px;min-width:180px;max-width:500px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;position:relative;flex-shrink:0}
@@ -82,6 +84,12 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 .svc-item .svc-name{color:var(--text);display:flex;align-items:center;gap:5px}.svc-item .svc-dot{width:6px;height:6px;border-radius:50%;flex-shrink:0}
 .svc-item .svc-bytes{color:var(--text2);font-size:10px}.svc-item .svc-bar{height:3px;border-radius:2px;background:var(--bg);margin-top:2px}.svc-item .svc-bar-fill{height:100%;border-radius:2px;transition:width .3s}
 .iface-item{display:flex;justify-content:space-between;padding:2px 0;font-size:11px}.iface-item .iface-name{color:var(--blue);font-weight:500}.iface-item .iface-ip{color:var(--text2);font-size:10px;text-align:right}
+.sys-bar{height:6px;border-radius:3px;background:var(--bg);margin-top:2px;margin-bottom:4px;overflow:hidden}.sys-bar-fill{height:100%;border-radius:3px;transition:width .3s}
+.dns-item{font-size:10px;color:var(--text2);padding:1px 0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dns-item .dns-time{color:var(--text3);margin-right:4px}
+.lan-item{display:flex;justify-content:space-between;padding:2px 0;font-size:11px}.lan-item .lan-ip{color:var(--cyan);font-weight:500}.lan-item .lan-mac{color:var(--text3);font-size:10px}
+.ping-item{display:flex;justify-content:space-between;padding:2px 0;font-size:11px}.ping-item .ping-host{color:var(--blue)}.ping-item .ping-val{font-weight:500}
+.scan-alert{background:rgba(224,108,117,0.15);border:1px solid var(--red);border-radius:4px;padding:4px 6px;margin:3px 0;font-size:10px;color:var(--red)}
+.usage-tab{background:var(--bg);border:1px solid var(--border);color:var(--text3);padding:2px 8px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:10px;flex:1}.usage-tab.active{background:var(--blue);color:#fff;border-color:var(--blue)}
 .country-item{display:flex;justify-content:space-between;padding:2px 0;font-size:11px}.country-item .country-name{color:var(--text)}.country-item .country-count{color:var(--text3);font-size:10px}
 .talker-item{display:flex;justify-content:space-between;padding:2px 0;font-size:11px;cursor:pointer}.talker-item:hover{color:var(--blue)}
 .talker-item .talker-proc{color:var(--text2);font-size:10px}.talker-item .talker-svc{color:var(--blue);font-weight:500}.talker-item .talker-bytes{color:var(--text2);font-size:10px}
@@ -131,6 +139,15 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     </div>
     <div class="sb-section"><canvas id="graph-canvas" height="100"></canvas></div>
     <div class="sb-section">
+      <div class="section-title">Data Usage</div>
+      <div style="display:flex;gap:4px;margin-bottom:4px">
+        <button onclick="loadDataUsage('day')" class="usage-tab active" id="ut-day">Day</button>
+        <button onclick="loadDataUsage('week')" class="usage-tab" id="ut-week">Week</button>
+        <button onclick="loadDataUsage('month')" class="usage-tab" id="ut-month">Month</button>
+      </div>
+      <div id="st-data-usage"></div>
+    </div>
+    <div class="sb-section">
       <div class="stat-row"><span class="label">Connections</span><span class="value" id="st-total" style="color:var(--blue)">0</span></div>
       <div class="stat-row"><span class="label">Mapped</span><span class="value" id="st-mapped" style="color:var(--cyan)">0</span></div>
       <div class="stat-row"><span class="label">TCP / UDP</span><span class="value" id="st-proto">0 / 0</span></div>
@@ -173,12 +190,20 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   </div>
   <div id="sidebar-right">
     <div id="sidebar-right-resize"></div>
+    <div class="sb-section"><div class="section-title">System</div><div id="st-system"></div></div>
+    <div class="sb-section"><div class="section-title">WiFi</div><div id="st-wifi"></div></div>
+    <div class="sb-section" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
     <div class="sb-section"><div class="section-title">States</div><div id="st-states"></div></div>
     <div class="sb-section"><div class="section-title">Processes</div><div id="st-procs"></div></div>
     <div class="sb-section"><div class="section-title">Bandwidth by Service</div><div id="st-svcs"></div></div>
+    <div class="sb-section"><div class="section-title">Per-Process Speed</div><div id="st-proc-bw"></div></div>
     <div class="sb-section"><div class="section-title">App Usage</div><div id="st-app-usage">Loading...</div></div>
     <div class="sb-section"><div class="section-title">Countries</div><div id="st-countries"></div></div>
     <div class="sb-section"><div class="section-title">Top Talkers</div><div id="st-talkers"></div></div>
+    <div class="sb-section"><div class="section-title">Port Scan Alerts</div><div id="st-scans"></div></div>
+    <div class="sb-section"><div class="section-title">LAN Devices</div><div id="st-lan"><button onclick="scanLan()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Scan Network</button><div id="st-lan-list"></div></div></div>
+    <div class="sb-section"><div class="section-title">Ping Monitor</div><div id="st-ping"><div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div><div id="st-ping-results"></div></div></div>
+    <div class="sb-section"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
     <div class="sb-section"><div class="section-title">Unknown Apps</div><div id="st-unknown">None</div></div>
     <div class="sb-section"><div class="section-title">Interfaces</div><div id="st-ifaces">Loading...</div></div>
     <div class="sb-section"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
@@ -199,6 +224,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   </div>
   <div class="set-group"><div class="set-group-title">Display</div>
     <div class="set-row"><label>Show Labels</label><div class="set-switch" id="s-sl" onclick="this.classList.toggle('on')"></div></div>
+    <div class="set-row"><label>True Dark Mode</label><div class="set-switch" id="s-td" onclick="toggleTrueDark()"></div></div>
   </div>
   <div class="set-group"><div class="set-group-title">Visual Effects</div>
     <div class="set-row"><label>Flow Animation</label><div class="set-switch on" id="s-flow" onclick="this.classList.toggle('on')"></div></div>
@@ -285,16 +311,36 @@ function initMap() {
     var cp = e.containerPoint;
     var ds = settings.dot_size || 6;
     var hitRadius = ds + 8;
-    for (var i = 0; i < lastConns.length; i++) {
-      var c = lastConns[i];
-      var g = geoCache[c.ip];
-      if (!g || g.lat == null) continue;
-      var p = map.latLngToContainerPoint([g.lat, g.lon]);
-      var dx = cp.x - p.x, dy = cp.y - p.y;
-      if (dx * dx + dy * dy < hitRadius * hitRadius) {
-        selectConnection(c.ip);
-        return;
+    var lineHit = 10;
+    var best = null, bestDist = Infinity;
+    if (homeInfo && homeInfo.lat != null) {
+      var hp = map.latLngToContainerPoint([homeInfo.lat, homeInfo.lon]);
+      for (var i = 0; i < lastConns.length; i++) {
+        var c = lastConns[i];
+        var g = geoCache[c.ip];
+        if (!g || g.lat == null) continue;
+        var p = map.latLngToContainerPoint([g.lat, g.lon]);
+        var dx = cp.x - p.x, dy = cp.y - p.y;
+        if (dx * dx + dy * dy < hitRadius * hitRadius) {
+          selectConnection(c.ip);
+          return;
+        }
+        var lx = hp.x - cp.x, ly = hp.y - cp.y;
+        var ex = hp.x - p.x, ey = hp.y - p.y;
+        var len2 = ex * ex + ey * ey;
+        var t = len2 > 0 ? Math.max(0, Math.min(1, (lx * ex + ly * ey) / len2)) : 0;
+        var px = hp.x + t * (p.x - hp.x) - cp.x;
+        var py = hp.y + t * (p.y - hp.y) - cp.y;
+        var dist = Math.sqrt(px * px + py * py);
+        if (dist < lineHit && dist < bestDist) {
+          bestDist = dist;
+          best = c.ip;
+        }
       }
+    }
+    if (best) {
+      selectConnection(best);
+      return;
     }
     if (selectedIp) {
       selectedIp = null;
@@ -325,7 +371,6 @@ function renderOverlay() {
   if (!homeInfo || homeInfo.lat == null || !lastConns.length) return;
 
   var hp = map.latLngToContainerPoint([homeInfo.lat, homeInfo.lon]);
-  if (hp.x < -500 || hp.x > w + 500 || hp.y < -500 || hp.y > h + 500) return;
 
   var lc = settings.line_color || '#c678dd';
   var lw = settings.line_width || 2;
@@ -358,8 +403,9 @@ function renderOverlay() {
     ovCtx.lineWidth = isSel ? lw + 3 : lw + intensity * 3;
     ovCtx.globalAlpha = isSel ? 1 : Math.max(0.3, 0.3 + intensity * 0.5);
     if (flowOn) {
-      ovCtx.setLineDash([10, 10]);
-      ovCtx.lineDashOffset = -(now * 20) % 20;
+      var flowSpeed = 30 + intensity * 200;
+      ovCtx.setLineDash([14, 14]);
+      ovCtx.lineDashOffset = -(now * flowSpeed) % 28;
     } else {
       ovCtx.setLineDash([]);
     }
@@ -382,18 +428,29 @@ function renderOverlay() {
         ovCtx.fill();
       }
       ovCtx.globalAlpha = 1;
+
+      if (settings.show_labels) {
+        var label = conn.service || conn.proc || conn.ip;
+        ovCtx.font = '10px monospace';
+        ovCtx.fillStyle = '#ccc';
+        ovCtx.globalAlpha = 0.85;
+        ovCtx.fillText(label, p.x + dotR + 4, p.y + 3);
+        ovCtx.globalAlpha = 1;
+      }
     }
   }
 
-  var hc = settings.home_dot_color || '#98c379';
-  ovCtx.beginPath();
-  ovCtx.arc(hp.x, hp.y, ds + 2, 0, Math.PI * 2);
-  ovCtx.fillStyle = hc;
-  ovCtx.globalAlpha = 1;
-  ovCtx.fill();
-  ovCtx.strokeStyle = '#fff';
-  ovCtx.lineWidth = 2;
-  ovCtx.stroke();
+  if (hp.x >= -50 && hp.x <= w + 50 && hp.y >= -50 && hp.y <= h + 50) {
+    var hc = settings.home_dot_color || '#98c379';
+    ovCtx.beginPath();
+    ovCtx.arc(hp.x, hp.y, ds + 2, 0, Math.PI * 2);
+    ovCtx.fillStyle = hc;
+    ovCtx.globalAlpha = 1;
+    ovCtx.fill();
+    ovCtx.strokeStyle = '#fff';
+    ovCtx.lineWidth = 2;
+    ovCtx.stroke();
+  }
 }
 
 // ---- THEME ----
@@ -420,7 +477,7 @@ function drawGraph(dlH, ulH) {
   ctx.scale(dpr, dpr);
   var w = rect.width, h = rect.height, pad = 12;
   ctx.clearRect(0, 0, w, h);
-  ctx.strokeStyle = '#1e2129';
+  ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border').trim() || '#2a2d35';
   ctx.lineWidth = 1;
   for (var i = 1; i < 4; i++) {
     ctx.beginPath();
@@ -839,6 +896,13 @@ window.pushUpdate = function(d) {
     document.getElementById('bh-count').textContent = d.conns.length;
   }
 
+  if (d.system) updateSystemStats(d.system);
+  if (d.wifi) updateWifiStats(d.wifi);
+  if (d.vpn) updateVpnStatus(d.vpn);
+  if (d.port_scans) updatePortScans(d.port_scans);
+  if (d.dns) updateDnsLog(d.dns);
+  if (d.proc_bw) updateProcBw(d.proc_bw);
+
   if (detailKey) updateDetail(lastConns);
   renderOverlay();
 };
@@ -874,7 +938,7 @@ function updateTable(conns) {
     var isp = (g.isp || '').substring(0, 18);
     var displayName = getDisplayName(c);
     var stCls = c.state === 'ESTABLISHED' ? 'state-ESTABLISHED' : c.state === 'CLOSED' ? 'state-CLOSED' : 'state-OTHER';
-    var bg = i % 2 === 0 ? '#14161c' : '#181b22';
+    var bg = i % 2 === 0 ? 'var(--bg)' : 'var(--bg2)';
     var subText = c.service
       ? '<span class="domain-sub">' + (c.hostname || c.ip) + ':' + c.port + '</span>'
       : c.hostname
@@ -913,6 +977,133 @@ async function doLookup() {
   else alert('Could not resolve: ' + q);
   document.getElementById('lookup-input').value = '';
 }
+function scanLan() {
+  if (window.pywebview) pywebview.api.scan_lan();
+  document.getElementById('st-lan-list').innerHTML = '<div style="font-size:10px;color:var(--text3)">Scanning...</div>';
+  setTimeout(function() { getLanDevices(); }, 8000);
+}
+async function getLanDevices() {
+  if (!window.pywebview) return;
+  var devs = JSON.parse(await pywebview.api.get_lan_devices());
+  var h = '';
+  for (var i = 0; i < devs.length; i++) {
+    h += '<div class="lan-item"><span class="lan-ip">' + devs[i].ip + '</span><span class="lan-mac">' + devs[i].mac + '</span></div>';
+  }
+  document.getElementById('st-lan-list').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No devices found</div>';
+}
+async function pingHost() {
+  var host = document.getElementById('ping-input').value.trim();
+  if (!host || !window.pywebview) return;
+  var r = JSON.parse(await pywebview.api.ping_host(host));
+  var cls = r.rtt < 50 ? 'var(--green)' : r.rtt < 150 ? 'var(--orange)' : 'var(--red)';
+  var h = '<div class="ping-item"><span class="ping-host">' + host + '</span><span class="ping-val" style="color:' + cls + '">' + r.rtt.toFixed(1) + ' ms</span></div>';
+  h += '<div style="font-size:10px;color:var(--text3)">Loss: ' + r.loss + '% | Jitter: ' + r.jitter.toFixed(1) + ' ms</div>';
+  document.getElementById('st-ping-results').innerHTML = h + document.getElementById('st-ping-results').innerHTML;
+}
+function updateSystemStats(sys) {
+  if (!sys) return;
+  var cpuCol = sys.cpu < 50 ? 'var(--green)' : sys.cpu < 80 ? 'var(--orange)' : 'var(--red)';
+  var ramCol = sys.ram_pct < 50 ? 'var(--green)' : sys.ram_pct < 80 ? 'var(--orange)' : 'var(--red)';
+  var html = '<div class="stat-row"><span class="label">CPU</span><span class="value" style="color:' + cpuCol + '">' + sys.cpu + '%</span></div>';
+  html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.cpu + '%;background:' + cpuCol + '"></div></div>';
+  html += '<div class="stat-row"><span class="label">RAM</span><span class="value" style="color:' + ramCol + '">' + fmtB(sys.ram_used) + ' / ' + fmtB(sys.ram_total) + '</span></div>';
+  html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.ram_pct + '%;background:' + ramCol + '"></div></div>';
+  if (sys.swap_total > 0) {
+    html += '<div class="stat-row"><span class="label">Swap</span><span class="value">' + fmtB(sys.swap_used) + '</span></div>';
+    html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.swap_pct + '%;background:var(--text3)"></div></div>';
+  }
+  if (sys.disk_read > 0 || sys.disk_write > 0) {
+    html += '<div class="stat-row"><span class="label">Disk R/W</span><span class="value">' + sys.disk_read.toFixed(1) + ' / ' + sys.disk_write.toFixed(1) + ' MB/s</span></div>';
+  }
+  if (sys.cpu_temp > 0) {
+    var tCol = sys.cpu_temp < 60 ? 'var(--green)' : sys.cpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
+    html += '<div class="stat-row"><span class="label">CPU Temp</span><span class="value" style="color:' + tCol + '">' + sys.cpu_temp + ' C</span></div>';
+  }
+  if (sys.gpu_temp > 0) {
+    var gCol = sys.gpu_temp < 60 ? 'var(--green)' : sys.gpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
+    html += '<div class="stat-row"><span class="label">GPU Temp</span><span class="value" style="color:' + gCol + '">' + sys.gpu_temp + ' C</span></div>';
+  }
+  document.getElementById('st-system').innerHTML = html;
+}
+function updateWifiStats(wifi) {
+  if (!wifi) return;
+  if (!wifi.ssid && wifi.signal === 0) {
+    document.getElementById('st-wifi').innerHTML = '<div style="font-size:11px;color:var(--text3)">Not connected to WiFi</div>';
+    return;
+  }
+  var sigCol = wifi.signal > -50 ? 'var(--green)' : wifi.signal > -70 ? 'var(--orange)' : 'var(--red)';
+  var html = '<div class="stat-row"><span class="label">SSID</span><span class="value" style="color:var(--cyan)">' + wifi.ssid + '</span></div>';
+  html += '<div class="stat-row"><span class="label">Signal</span><span class="value" style="color:' + sigCol + '">' + wifi.signal + ' dBm</span></div>';
+  var pct = Math.max(0, Math.min(100, (wifi.signal + 100) * 2));
+  html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + pct + '%;background:' + sigCol + '"></div></div>';
+  if (wifi.freq) html += '<div class="stat-row"><span class="label">Frequency</span><span class="value">' + wifi.freq + '</span></div>';
+  if (wifi.speed) html += '<div class="stat-row"><span class="label">Speed</span><span class="value">' + wifi.speed + ' Mb/s</span></div>';
+  document.getElementById('st-wifi').innerHTML = html;
+}
+function updateVpnStatus(vpn) {
+  var sec = document.getElementById('vpn-section');
+  if (!vpn || !vpn.interfaces || vpn.interfaces.length === 0) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  var col = vpn.active ? 'var(--green)' : 'var(--text3)';
+  var status = vpn.active ? 'Connected' : 'Inactive';
+  var html = '<div class="stat-row"><span class="label">Status</span><span class="value" style="color:' + col + '">' + status + '</span></div>';
+  html += '<div class="stat-row"><span class="label">Interfaces</span><span class="value">' + vpn.interfaces.join(', ') + '</span></div>';
+  document.getElementById('st-vpn').innerHTML = html;
+}
+function updatePortScans(data) {
+  if (!data) return;
+  var h = '';
+  for (var i = 0; i < data.scans.length; i++) {
+    var s = data.scans[i];
+    h += '<div class="scan-alert">' + s.ip + ' probed ' + s.ports + ' ports</div>';
+  }
+  for (var i = 0; i < Math.min(data.top_targets.length, 5); i++) {
+    var t = data.top_targets[i];
+    if (t[1].ports > 1) h += '<div style="font-size:10px;color:var(--text3)">' + t[0] + ': ' + t[1].ports + ' ports</div>';
+  }
+  document.getElementById('st-scans').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No scan activity</div>';
+}
+function updateDnsLog(dns) {
+  if (!dns || !dns.length) return;
+  var h = '';
+  for (var i = dns.length - 1; i >= Math.max(0, dns.length - 20); i--) {
+    var q = dns[i];
+    var t = new Date(q.time * 1000);
+    var ts = t.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' });
+    h += '<div class="dns-item"><span class="dns-time">' + ts + '</span>' + q.domain + '</div>';
+  }
+  document.getElementById('st-dns').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No DNS queries captured</div>';
+}
+function updateProcBw(pbw) {
+  if (!pbw) return;
+  var items = [];
+  for (var p in pbw) { if (pbw[p].dl > 0 || pbw[p].ul > 0) items.push({name: p, dl: pbw[p].dl, ul: pbw[p].ul, total: pbw[p].sent + pbw[p].recv}); }
+  items.sort(function(a,b) { return b.total - a.total; });
+  var h = '';
+  for (var i = 0; i < Math.min(items.length, 10); i++) {
+    var it = items[i];
+    h += '<div class="svc-item"><span class="svc-name">' + getSvcIcon(it.name) + ' ' + it.name + '</span><span class="svc-bytes">' + fmtSpd(it.dl) + ' ↓ / ' + fmtSpd(it.ul) + ' ↑</span></div>';
+  }
+  document.getElementById('st-proc-bw').innerHTML = h || '<div style="font-size:10px;color:var(--text3)">No active processes</div>';
+}
+async function loadDataUsage(period) {
+  document.querySelectorAll('.usage-tab').forEach(function(b) { b.classList.remove('active'); });
+  document.getElementById('ut-' + period).classList.add('active');
+  if (!window.pywebview) return;
+  var r = JSON.parse(await pywebview.api.get_summaries(period));
+  if (!r || !r.hours) return;
+  var h = '<div class="stat-row"><span class="label">Peak DL</span><span class="value" style="color:var(--cyan)">' + fmtSpd(r.peak_dl || 0) + '</span></div>';
+  h += '<div class="stat-row"><span class="label">Peak UL</span><span class="value" style="color:var(--magenta)">' + fmtSpd(r.peak_ul || 0) + '</span></div>';
+  h += '<div class="stat-row"><span class="label">Hours</span><span class="value">' + (r.total_hours || 0) + '</span></div>';
+  for (var i = 0; i < r.hours.length; i++) {
+    var hr = r.hours[i];
+    var maxBw = Math.max(hr.pdl || 0, hr.pul || 0, 1);
+    h += '<div style="font-size:9px;color:var(--text3);margin-top:2px">' + (hr.hour || '') + '</div>';
+    h += '<div class="svc-bar"><div class="svc-bar-fill" style="width:' + ((hr.pdl || 0) / maxBw * 100) + '%;background:var(--cyan)"></div></div>';
+    h += '<div class="svc-bar"><div class="svc-bar-fill" style="width:' + ((hr.pul || 0) / maxBw * 100) + '%;background:var(--magenta)"></div></div>';
+  }
+  document.getElementById('st-data-usage').innerHTML = h;
+}
 function fallbackPinLocation() {
   if (homeInfo.lat != null) {
     document.getElementById('home-info').innerHTML = 'Pinned: ' + homeInfo.lat.toFixed(4) + ', ' + homeInfo.lon.toFixed(4) + '<br>Source: IP geolocation';
@@ -944,6 +1135,7 @@ function openSettings() {
   document.getElementById('s-dc').value = settings.dot_color || '#61afef';
   document.getElementById('s-hc').value = settings.home_dot_color || '#98c379';
   document.getElementById('s-sl').classList.toggle('on', !!settings.show_labels);
+  document.getElementById('s-td').classList.toggle('on', settings.true_dark === true);
   document.getElementById('s-flow').classList.toggle('on', settings.flow_animation !== false);
   document.getElementById('s-icons').classList.toggle('on', settings.service_icons !== false);
   document.getElementById('s-cluster').classList.toggle('on', settings.map_clustering === true);
@@ -957,6 +1149,20 @@ function openSettings() {
   document.getElementById('settings-overlay').classList.add('open');
 }
 function closeSettings() { document.getElementById('settings-overlay').classList.remove('open'); }
+var DARK_VARS = { '--bg':'#000000','--bg2':'#0a0a0a','--bg3':'#111111','--bg4':'#1a1a1a','--border':'#222222','--text':'#e0e0e0','--text2':'#888888','--text3':'#555555','--blue':'#5599ee','--cyan':'#44aaaa','--green':'#66aa55','--red':'#cc4455','--magenta':'#aa66cc','--orange':'#bb8844','--yellow':'#ccaa44' };
+var LIGHT_VARS = { '--bg':'#111318','--bg2':'#181b22','--bg3':'#1e2129','--bg4':'#252830','--border':'#2a2d35','--text':'#cdd3df','--text2':'#8b929e','--text3':'#5c6370','--blue':'#61afef','--cyan':'#56b6c2','--green':'#98c379','--red':'#e06c75','--magenta':'#c678dd','--orange':'#d19a66','--yellow':'#e5c07b' };
+function applyTheme(on) {
+  var v = on ? DARK_VARS : LIGHT_VARS;
+  var r = document.documentElement;
+  for (var k in v) r.style.setProperty(v[k] ? k : k, v[k]);
+}
+function toggleTrueDark() {
+  document.getElementById('s-td').classList.toggle('on');
+  var on = document.getElementById('s-td').classList.contains('on');
+  applyTheme(on);
+  settings.true_dark = on;
+  if (window.pywebview) pywebview.api.save_settings(JSON.stringify(settings));
+}
 
 async function applySettings() {
   settings.line_color = document.getElementById('s-lc').value;
@@ -965,6 +1171,8 @@ async function applySettings() {
   settings.dot_color = document.getElementById('s-dc').value;
   settings.home_dot_color = document.getElementById('s-hc').value;
   settings.show_labels = document.getElementById('s-sl').classList.contains('on');
+  settings.true_dark = document.getElementById('s-td').classList.contains('on');
+  applyTheme(settings.true_dark);
   settings.flow_animation = document.getElementById('s-flow').classList.contains('on');
   settings.service_icons = document.getElementById('s-icons').classList.contains('on');
   settings.map_clustering = document.getElementById('s-cluster').classList.contains('on');
@@ -981,7 +1189,8 @@ async function applySettings() {
 }
 
 async function resetSettings() {
-  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true };
+  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, true_dark:false, map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true };
+  applyTheme(false);
   if (window.pywebview) await pywebview.api.save_settings(JSON.stringify(settings));
   closeSettings();
   if (lastConns.length) renderOverlay();
@@ -1012,9 +1221,16 @@ async function generateReport() {
 }
 async function takeScreenshot() {
   if (!window.pywebview) return;
-  var r = JSON.parse(await pywebview.api.take_screenshot());
-  if (r.ok) alert('Screenshot saved: ' + r.path);
-  else alert('Screenshot failed: ' + (r.error || 'unknown'));
+  try {
+    var el = document.getElementById('app');
+    var canvas = await html2canvas(el, { backgroundColor: null, useCORS: true });
+    var dataUrl = canvas.toDataURL('image/png');
+    var r = JSON.parse(await pywebview.api.save_screenshot(dataUrl));
+    if (r.ok) alert('Screenshot saved: ' + r.path);
+    else alert('Screenshot failed: ' + (r.error || 'unknown'));
+  } catch(e) {
+    alert('Screenshot failed: ' + e.message);
+  }
 }
 
 // ---- KEYBOARD SHORTCUTS ----
@@ -1085,6 +1301,7 @@ async function boot() {
   homeInfo = init.home || {};
   document.getElementById('map-theme').value = settings.map_theme || 'dark';
   changeTheme(settings.map_theme || 'dark', false);
+  if (settings.true_dark) applyTheme(true);
   map.invalidateSize();
 
   var data = JSON.parse(await pywebview.api.get_connections());
@@ -1108,6 +1325,9 @@ async function boot() {
   setInterval(getAppUsage, 10000);
   getUnknownApps();
   setInterval(getUnknownApps, 10000);
+  loadDataUsage('day');
+  getLanDevices();
+  setInterval(getLanDevices, 15000);
   } catch(e) { console.error('BOOT FAIL:', e); }
 }
 
