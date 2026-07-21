@@ -22,7 +22,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #top-bar .tb-item .tb-label{color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:0.5px}
 #top-bar .tb-item .tb-val{font-weight:600;font-size:10px;min-width:28px;text-align:right}
 #top-bar .tb-sep{display:none}
-#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:3px 10px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;white-space:nowrap}
+#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px 14px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;white-space:nowrap}
 #top-bar button:hover{color:var(--text);border-color:#444}
 #top-bar button.tb-red{background:rgba(224,108,117,0.15);border:1px solid var(--red);color:var(--red);font-weight:600}
 #top-bar button.tb-red:hover{background:var(--red);color:#fff}
@@ -176,7 +176,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     </div>
     <div class="tb-sec">
       <div class="tb-item"><button onclick="scanLan()">LAN</button></div>
-      <div class="tb-item"><button onclick="runSpeedtest()">Speed</button></div>
       <div class="tb-item"><button onclick="takeScreenshot()">Snap</button></div>
       <div class="tb-item"><button onclick="exportCsv()">CSV</button></div>
       <div class="tb-item"><button onclick="exportJson()">JSON</button></div>
@@ -281,10 +280,8 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   <div class="set-columns">
     <div>
       <div class="set-group"><div class="set-group-title">Map Visual</div>
-        <div class="set-row"><label>Line Color</label><input type="color" id="s-lc" value="#c678dd"></div>
         <div class="set-row"><label>Line Width</label><input type="range" id="s-lw" min="1" max="6" value="2" oninput="document.getElementById('s-lwv').textContent=this.value"><span class="rv" id="s-lwv">2</span></div>
         <div class="set-row"><label>Dot Size</label><input type="range" id="s-ds" min="2" max="14" value="6" oninput="document.getElementById('s-dsv').textContent=this.value"><span class="rv" id="s-dsv">6</span></div>
-        <div class="set-row"><label>Dot Color</label><input type="color" id="s-dc" value="#61afef"></div>
         <div class="set-row"><label>Home Color</label><input type="color" id="s-hc" value="#98c379"></div>
       </div>
       <div class="set-group"><div class="set-group-title">Display</div>
@@ -337,8 +334,21 @@ var SVC_ICONS = {
 function getSvcIcon(s) { return SVC_ICONS[s] || SVC_ICONS['Default']; }
 
 var SVC_COLORS = ['#61afef','#c678dd','#56b6c2','#98c379','#e06c75','#d19a66','#e5c07b','#be5046'];
-var TRACE_COLORS = ['#f97316','#06b6d4','#a855f7','#eab308','#ec4899','#14b8a6','#f43f5e','#84cc16',
-                    '#8b5cf6','#22d3ee','#f59e0b','#e11d48','#10b981','#6366f1','#d946ef','#0ea5e9'];
+var CONN_COLORS = ['#f97316','#06b6d4','#a855f7','#eab308','#ec4899','#14b8a6','#f43f5e','#84cc16',
+                   '#8b5cf6','#22d3ee','#f59e0b','#e11d48','#10b981','#6366f1','#d946ef','#0ea5e9',
+                   '#fb923c','#2dd4bf','#c084fc','#facc15','#f472b6','#2dd4bf','#fb7185','#a3e635',
+                   '#a78bfa','#67e8f9','#fbbf24','#f87171','#34d399','#818cf8','#e879f9','#38bdf8'];
+var _ipColorCache = {};
+var _ipColorIdx = 0;
+
+function getIpColor(ip) {
+  if (_ipColorCache[ip]) return _ipColorCache[ip];
+  var h = 0;
+  for (var i = 0; i < ip.length; i++) { h = ((h << 5) - h + ip.charCodeAt(i)) | 0; }
+  var c = CONN_COLORS[Math.abs(h) % CONN_COLORS.length];
+  _ipColorCache[ip] = c;
+  return c;
+}
 
 var map, tileLayer, canvasOverlay, ovCtx;
 var settings = {}, geoCache = {}, homeInfo = {};
@@ -482,10 +492,11 @@ function renderOverlay() {
 
   var allTraceKeys = Object.keys(allTraceData);
   for (var ti = 0; ti < allTraceKeys.length; ti++) {
-    var td = allTraceData[allTraceKeys[ti]];
+    var traceIp = allTraceKeys[ti];
+    var td = allTraceData[traceIp];
     if (!td || !td.hops || td.hops.length === 0) continue;
     var hops = td.hops;
-    var baseColor = TRACE_COLORS[ti % TRACE_COLORS.length];
+    var baseColor = getIpColor(traceIp);
     var bc = hexToRgb(baseColor);
     for (var hi = 0; hi < hops.length; hi++) {
       var hop = hops[hi];
@@ -552,13 +563,10 @@ function renderOverlay() {
 
   if (!hp || !lastConns.length) return;
 
-  var lc = settings.line_color || '#c678dd';
   var lw = settings.line_width || 2;
   var ds = settings.dot_size || 6;
-  var dc = settings.dot_color || '#61afef';
   var flowOn = settings.flow_animation !== false;
   var now = Date.now() / 1000;
-  var rttColOn = settings.rtt_colors !== false;
   var bwThickOn = settings.bandwidth_thickness !== false;
   var bwArcOn = settings.bandwidth_arcs === true;
 
@@ -579,14 +587,7 @@ function renderOverlay() {
     var intensity = (ipBw[conn.ip] || 0) / maxBw;
     var isSel = conn.ip === selectedIp;
 
-    var lineCol = lc;
-    if (rttColOn && !isSel) {
-      if (conn.rtt > 0 && conn.proto === 'TCP') {
-        if (conn.rtt < 50) lineCol = '#98c379';
-        else if (conn.rtt <= 150) lineCol = '#e5c07b';
-        else lineCol = '#e06c75';
-      }
-    }
+    var lineCol = getIpColor(conn.ip);
     if (isSel) lineCol = '#fff';
 
     var lineW = lw;
@@ -628,7 +629,7 @@ function renderOverlay() {
 
     if (p.x >= -50 && p.x <= w + 50 && p.y >= -50 && p.y <= h + 50) {
       var dotR = isSel ? ds + 3 : ds + intensity * 4;
-      var dotColor = isSel ? '#fff' : intensity > 0.7 ? '#e06c75' : intensity > 0.3 ? '#d19a66' : dc;
+      var dotColor = isSel ? '#fff' : lineCol;
       ovCtx.beginPath();
       ovCtx.arc(p.x, p.y, dotR, 0, Math.PI * 2);
       ovCtx.fillStyle = dotColor;
@@ -646,7 +647,7 @@ function renderOverlay() {
       if (settings.show_labels) {
         var label = conn.service || conn.proc || conn.ip;
         ovCtx.font = '10px monospace';
-        ovCtx.fillStyle = '#ccc';
+        ovCtx.fillStyle = lineCol;
         ovCtx.globalAlpha = 0.85;
         ovCtx.fillText(label, p.x + dotR + 4, p.y + 3);
         ovCtx.globalAlpha = 1;
@@ -945,7 +946,8 @@ function updateDetail(conns) {
   var c = matches[0];
   var g = geoCache[c.ip] || {};
   var displayName = c.service || c.hostname || c.ip;
-  document.getElementById('d-ip').textContent = displayName;
+  var connCol = getIpColor(c.ip);
+  document.getElementById('d-ip').innerHTML = '<span style="color:' + connCol + '">' + displayName + '</span>';
   document.getElementById('d-loc').textContent = (c.service ? c.hostname || '' : '') + ' ' + c.ip + ':' + c.port + ' - ' + (g.city || '?') + ', ' + (g.country || '?');
 
   var now = Date.now() / 1000;
@@ -1083,7 +1085,7 @@ window.pushUpdate = function(d) {
       var total = tc.sent + tc.recv;
       if (total === 0) continue;
       var name = tc.service || tc.proc || tc.ip;
-      th += '<div class="talker-item" onclick="selectConnection(\'' + tc.ip + '\')"><span><span class="talker-svc">' + getSvcIcon(name) + ' ' + name + '</span> <span class="talker-proc">' + tc.proc + '</span></span><span class="talker-bytes">' + fmtB(total) + '</span></div>';
+      th += '<div class="talker-item" onclick="selectConnection(\'' + tc.ip + '\')"><span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + getIpColor(tc.ip) + ';margin-right:4px;vertical-align:middle"></span><span class="talker-svc">' + getSvcIcon(name) + ' ' + name + '</span> <span class="talker-proc">' + tc.proc + '</span></span><span class="talker-bytes">' + fmtB(total) + '</span></div>';
     }
     document.getElementById('st-talkers').innerHTML = th || '<div style="font-size:11px;color:var(--text3)">No traffic yet</div>';
 
@@ -1156,9 +1158,10 @@ function updateTable(conns) {
       : c.proto === 'TCP' ? '<span class="badge badge-tcp">TCP</span>'
       : '<span class="badge badge-udp">UDP</span>';
     var icon = settings.service_icons !== false ? '<span class="svc-icon">' + getSvcIcon(c.service || c.proc) + '</span>' : '';
+    var connCol = getIpColor(c.ip);
 
     html += '<div class="tbl-row' + (c.ip === selectedIp ? ' selected' : '') + '" style="background:' + bg + '" data-ip="' + c.ip + '" onclick="selectConnection(\'' + c.ip + '\')">'
-      + '<span>' + icon + c.proc + ' (' + (c.pid || '?') + ')</span>'
+      + '<span><span style="display:inline-block;width:6px;height:6px;border-radius:50%;background:' + connCol + ';margin-right:4px;vertical-align:middle"></span>' + icon + c.proc + ' (' + (c.pid || '?') + ')</span>'
       + '<span>' + protoBadge + '</span>'
       + '<span title="' + c.ip + ':' + c.port + '"><span class="domain-name">' + displayName + '</span> ' + subText + '</span>'
       + '<span>' + loc + '</span>'
@@ -1417,12 +1420,10 @@ window.pushHomeUpdate = function(h) {
 // ---- SETTINGS ----
 
 function openSettings() {
-  document.getElementById('s-lc').value = settings.line_color || '#c678dd';
   document.getElementById('s-lw').value = settings.line_width || 2;
   document.getElementById('s-lwv').textContent = settings.line_width || 2;
   document.getElementById('s-ds').value = settings.dot_size || 6;
   document.getElementById('s-dsv').textContent = settings.dot_size || 6;
-  document.getElementById('s-dc').value = settings.dot_color || '#61afef';
   document.getElementById('s-hc').value = settings.home_dot_color || '#98c379';
   document.getElementById('s-sl').classList.toggle('on', !!settings.show_labels);
   document.getElementById('s-td').classList.toggle('on', settings.true_dark === true);
@@ -1466,10 +1467,8 @@ function toggleTrueDark() {
 }
 
 async function applySettings() {
-  settings.line_color = document.getElementById('s-lc').value;
   settings.line_width = parseInt(document.getElementById('s-lw').value);
   settings.dot_size = parseInt(document.getElementById('s-ds').value);
-  settings.dot_color = document.getElementById('s-dc').value;
   settings.home_dot_color = document.getElementById('s-hc').value;
   settings.show_labels = document.getElementById('s-sl').classList.contains('on');
   settings.true_dark = document.getElementById('s-td').classList.contains('on');
@@ -1499,7 +1498,7 @@ async function applySettings() {
 }
 
 async function resetSettings() {
-  settings = { line_color:'#c678dd', line_width:2, dot_size:6, dot_color:'#61afef', home_dot_color:'#98c379', show_labels:false, true_dark:false, text_color:'', dl_label:'download', ul_label:'upload', map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, map_clustering:false, trail_effects:false, mini_pie_charts:true, latency_zones:true, rtt_colors:true, bandwidth_thickness:true, bandwidth_arcs:false };
+  settings = { line_width:2, dot_size:6, home_dot_color:'#98c379', show_labels:false, true_dark:false, text_color:'', dl_label:'download', ul_label:'upload', map_theme:settings.map_theme||'dark', alert_dl_threshold:0, alert_ul_threshold:0, alert_cooldown:30, notifications:true, flow_animation:true, service_icons:true, bandwidth_thickness:true, bandwidth_arcs:false };
   applyTheme(false);
   applyTextColor('');
   document.getElementById('dl-label').textContent = 'download';
@@ -1588,12 +1587,14 @@ function setupResize(handleId, direction, applyFn, saveKey) {
       h.classList.remove('dragging');
       document.body.style.cursor = '';
       document.body.style.userSelect = '';
-      if (saveKey && lastVal != null && window.pywebview) {
+      if (saveKey && lastVal != null) {
         var sizes = {};
         try { sizes = JSON.parse(localStorage.getItem('ntm_panel_sizes') || '{}'); } catch(e) {}
         sizes[saveKey] = lastVal;
         try { localStorage.setItem('ntm_panel_sizes', JSON.stringify(sizes)); } catch(e) {}
-        pywebview.api.save_panel_sizes(JSON.stringify(sizes));
+        if (window.pywebview) {
+          try { pywebview.api.save_panel_sizes(JSON.stringify(sizes)); } catch(e) {}
+        }
       }
     }
   });
@@ -1729,6 +1730,9 @@ async function boot() {
 
   try {
     var panelSizes = JSON.parse(await pywebview.api.get_panel_sizes());
+    if (!panelSizes || Object.keys(panelSizes).length === 0) {
+      try { panelSizes = JSON.parse(localStorage.getItem('ntm_panel_sizes') || '{}'); } catch(e2) {}
+    }
     if (panelSizes.sb_left_w) document.getElementById('sidebar').style.width = panelSizes.sb_left_w;
     if (panelSizes.sb_right_w) document.getElementById('sidebar-right').style.width = panelSizes.sb_right_w;
     if (panelSizes.sb_bottom_h) document.getElementById('bottom').style.height = panelSizes.sb_bottom_h;

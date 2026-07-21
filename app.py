@@ -381,8 +381,9 @@ def save_settings_file(settings):
     try:
         with open(SETTINGS_FILE, "w") as f:
             json.dump(settings, f, indent=2)
-    except Exception:
-        pass
+        log(f"Settings saved to {SETTINGS_FILE}")
+    except Exception as e:
+        log(f"Settings save error: {e}")
 
 
 def load_cache():
@@ -1785,8 +1786,9 @@ class Api:
             d = json.loads(data) if isinstance(data, str) else data
             self.settings["panel_sizes"] = d
             save_settings_file(self.settings)
-        except Exception:
-            pass
+            log(f"Panel sizes saved: {d}")
+        except Exception as e:
+            log(f"Panel save error: {e}")
         return json.dumps({"ok": True})
 
     def get_panel_sizes(self):
