@@ -11,7 +11,17 @@
 :root{--bg:#111318;--bg2:#181b22;--bg3:#1e2129;--bg4:#252830;--border:#2a2d35;--text:#cdd3df;--text2:#8b929e;--text3:#5c6370;--blue:#61afef;--cyan:#56b6c2;--green:#98c379;--red:#e06c75;--magenta:#c678dd;--orange:#d19a66;--yellow:#e5c07b}
 body.true-dark, html.dark-theme{--bg:#000000;--bg2:#0a0a0a;--bg3:#111111;--bg4:#1a1a1a;--border:#222222;--text:#e0e0e0;--text2:#888888;--text3:#555555;--blue:#5599ee;--cyan:#44aaaa;--green:#66aa55;--red:#cc4455;--magenta:#aa66cc;--orange:#bb8844;--yellow:#ccaa44}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:13px}
-#app{display:flex;height:100vh;width:100vw}
+#app{display:flex;flex-direction:column;height:100vh;width:100vw}
+#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;padding:6px 14px;overflow-x:auto;overflow-y:hidden;flex-shrink:0;min-height:48px}
+#top-bar .tb-item{display:flex;align-items:center;gap:6px;white-space:nowrap;font-size:11px;color:var(--text2)}
+#top-bar .tb-item .tb-label{color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:0.5px}
+#top-bar .tb-item .tb-val{font-weight:600}
+#top-bar .tb-sep{width:1px;height:24px;background:var(--border);flex-shrink:0}
+#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:3px 8px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:10px;white-space:nowrap}
+#top-bar button:hover{color:var(--text);border-color:#444}
+#top-bar .kb{font-size:9px;color:var(--text3)}
+#top-bar .kb kbd{background:var(--bg4);padding:1px 3px;border-radius:2px;font-size:9px}
+#mid{display:flex;flex:1;overflow:hidden}
 #sidebar{width:280px;min-width:180px;max-width:500px;background:var(--bg2);border-right:1px solid var(--border);display:flex;flex-direction:column;overflow-y:auto;overflow-x:hidden;position:relative;flex-shrink:0}
 #sidebar::-webkit-scrollbar{width:3px}#sidebar::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 #sidebar-resize{position:absolute;top:0;right:-3px;width:6px;height:100%;cursor:col-resize;z-index:10;transition:background .15s}
@@ -117,9 +127,42 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 </head>
 <body>
 <div id="app">
+  <div id="top-bar">
+    <div class="tb-item"><span class="tb-label">DL</span><span class="tb-val" id="tb-dl" style="color:var(--cyan)">0 KB/s</span></div>
+    <div class="tb-item"><span class="tb-label">UL</span><span class="tb-val" id="tb-ul" style="color:var(--magenta)">0 KB/s</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-item"><span class="tb-label">CPU</span><span class="tb-val" id="tb-cpu">0%</span></div>
+    <div class="tb-item"><span class="tb-label">RAM</span><span class="tb-val" id="tb-ram">0%</span></div>
+    <div class="tb-item" id="tb-cpu-temp-wrap" style="display:none"><span class="tb-label">CPU</span><span class="tb-val" id="tb-cpu-temp">0C</span></div>
+    <div class="tb-item" id="tb-gpu-temp-wrap" style="display:none"><span class="tb-label">GPU</span><span class="tb-val" id="tb-gpu-temp">0C</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-item"><span class="tb-label">WiFi</span><span class="tb-val" id="tb-wifi">--</span></div>
+    <div class="tb-item"><span class="tb-label">VPN</span><span class="tb-val" id="tb-vpn" style="color:var(--text3)">Off</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-item" id="tb-home-wrap"><span class="tb-label">Your PC</span><span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span></div>
+    <div class="tb-sep"></div>
+    <div class="tb-item"><button onclick="scanLan()">Scan LAN</button></div>
+    <div class="tb-item"><button onclick="runSpeedtest()">Speedtest</button></div>
+    <div class="tb-item"><button onclick="takeScreenshot()">Screenshot</button></div>
+    <div class="tb-item"><button onclick="exportCsv()">CSV</button></div>
+    <div class="tb-item"><button onclick="exportJson()">JSON</button></div>
+    <div class="tb-item"><button onclick="generateReport()">Report</button></div>
+    <div class="tb-item"><button onclick="openSettings()">Settings</button></div>
+    <div class="tb-sep"></div>
+    <div class="tb-item">
+      <span class="kb"><kbd>Ctrl+F</kbd> Filter</span>
+      <span class="kb"><kbd>Ctrl+E</kbd> CSV</span>
+      <span class="kb"><kbd>Ctrl+S</kbd> Snap</span>
+      <span class="kb"><kbd>Esc</kbd> Close</span>
+    </div>
+    <div class="tb-item" style="margin-left:auto">
+      <div class="lookup-row" style="margin:0"><input id="lookup-input" placeholder="IP or domain..." style="width:140px"/><button onclick="doLookup()">Locate</button></div>
+    </div>
+  </div>
+  <div id="mid">
   <div id="sidebar">
     <div id="sidebar-resize"></div>
-    <div class="sb-section"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="sb-title">Network Monitor</div><div class="sb-sub">Click any dot or line for details</div></div><button onclick="takeScreenshot()" style="background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px 8px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Screenshot</button></div></div>
+    <div class="sb-section"><div style="display:flex;justify-content:space-between;align-items:center"><div><div class="sb-title">Network Monitor</div><div class="sb-sub">Click any dot or line for details</div></div></div></div>
     <div class="sb-section">
       <div class="speed-val dl" id="sp-dl">0 KB/s</div><div style="font-size:10px;color:var(--text3)">download</div>
       <div class="speed-val ul" id="sp-ul">0 KB/s</div><div style="font-size:10px;color:var(--text3)">upload</div>
@@ -132,7 +175,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="stat-row"><span class="label">Recv</span><span class="value" id="st-sess-recv" style="color:var(--cyan)">0 B</span></div>
       <div style="margin-top:6px;display:flex;gap:5px">
         <button id="btn-record" onclick="toggleRecording()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Record</button>
-        <button onclick="runSpeedtest()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px" id="btn-speedtest">Speedtest</button>
       </div>
       <div id="rec-status" style="font-size:9px;color:var(--text3);margin-top:3px"></div>
       <div id="speedtest-status" style="font-size:9px;color:var(--text3);margin-top:2px"></div>
@@ -158,23 +200,12 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="home-box" id="home-info">Locating...</div>
       <div style="margin-top:6px"><button onclick="fallbackPinLocation()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Pin Location</button></div>
     </div>
-    <div class="sb-section"><div class="lookup-row"><input id="lookup-input" placeholder="IP or domain..."/><button onclick="doLookup()">Locate</button></div></div>
-    <div class="sb-section"><div class="section-title">Map Style</div><select id="map-theme" onchange="changeTheme(this.value,true)"><option value="dark">Dark</option><option value="voyager">Light</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option></select></div>
     <div class="sb-section">
-      <div class="section-title">Export</div>
-      <div style="display:flex;gap:5px;flex-wrap:wrap">
-        <button onclick="exportCsv()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:5px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">CSV</button>
-        <button onclick="exportJson()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:5px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">JSON</button>
-        <button onclick="generateReport()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:5px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Report</button>
-      </div>
+      <div class="section-title">Ping Monitor</div>
+      <div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div>
+      <div id="st-ping-results"></div>
     </div>
-    <div class="sb-section"><button class="btn-settings" onclick="openSettings()">Settings (Ctrl+,)</button></div>
-    <div class="sb-section" style="padding:6px 14px;border-bottom:none"><div style="font-size:9px;color:var(--text3);line-height:1.6">
-      <div><kbd style="background:var(--bg4);padding:1px 4px;border-radius:2px">Ctrl+F</kbd> Filter</div>
-      <div><kbd style="background:var(--bg4);padding:1px 4px;border-radius:2px">Ctrl+E</kbd> Export CSV</div>
-      <div><kbd style="background:var(--bg4);padding:1px 4px;border-radius:2px">Ctrl+S</kbd> Screenshot</div>
-      <div><kbd style="background:var(--bg4);padding:1px 4px;border-radius:2px">Esc</kbd> Close panel</div>
-    </div></div>
+    <div class="sb-section"><div class="section-title">Map Style</div><select id="map-theme" onchange="changeTheme(this.value,true)"><option value="dark">Dark</option><option value="voyager">Light</option><option value="osm">OpenStreetMap</option><option value="satellite">Satellite</option></select></div>
   </div>
   <div id="main">
     <div id="map"></div>
@@ -191,8 +222,8 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   <div id="sidebar-right">
     <div id="sidebar-right-resize"></div>
     <div class="sb-section"><div class="section-title">System</div><div id="st-system"></div></div>
-    <div class="sb-section"><div class="section-title">WiFi</div><div id="st-wifi"></div></div>
     <div class="sb-section" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
+    <div class="sb-section"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
     <div class="sb-section"><div class="section-title">States</div><div id="st-states"></div></div>
     <div class="sb-section"><div class="section-title">Processes</div><div id="st-procs"></div></div>
     <div class="sb-section"><div class="section-title">Bandwidth by Service</div><div id="st-svcs"></div></div>
@@ -201,12 +232,11 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     <div class="sb-section"><div class="section-title">Countries</div><div id="st-countries"></div></div>
     <div class="sb-section"><div class="section-title">Top Talkers</div><div id="st-talkers"></div></div>
     <div class="sb-section"><div class="section-title">Port Scan Alerts</div><div id="st-scans"></div></div>
-    <div class="sb-section"><div class="section-title">LAN Devices</div><div id="st-lan"><button onclick="scanLan()" style="width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Scan Network</button><div id="st-lan-list"></div></div></div>
-    <div class="sb-section"><div class="section-title">Ping Monitor</div><div id="st-ping"><div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div><div id="st-ping-results"></div></div></div>
-    <div class="sb-section"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
+    <div class="sb-section"><div class="section-title">LAN Devices</div><div id="st-lan"><div id="st-lan-list"></div></div></div>
     <div class="sb-section"><div class="section-title">Unknown Apps</div><div id="st-unknown">None</div></div>
     <div class="sb-section"><div class="section-title">Interfaces</div><div id="st-ifaces">Loading...</div></div>
     <div class="sb-section"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
+  </div>
   </div>
 </div>
 <div id="detail-bg" onclick="closeDetail()"></div>
@@ -807,6 +837,8 @@ window.pushUpdate = function(d) {
   if (d.speed) {
     document.getElementById('sp-dl').textContent = fmtSpd(d.speed.dl || 0);
     document.getElementById('sp-ul').textContent = fmtSpd(d.speed.ul || 0);
+    document.getElementById('tb-dl').textContent = fmtSpd(d.speed.dl || 0);
+    document.getElementById('tb-ul').textContent = fmtSpd(d.speed.ul || 0);
   }
   if (d.totals) {
     document.getElementById('sp-tot').textContent = 'Sent ' + fmtB(d.totals.sent || 0) + ' / Recv ' + fmtB(d.totals.recv || 0);
@@ -883,6 +915,7 @@ window.pushUpdate = function(d) {
     document.getElementById('st-talkers').innerHTML = th || '<div style="font-size:11px;color:var(--text3)">No traffic yet</div>';
 
     document.getElementById('home-info').innerHTML = 'IP: ' + (homeInfo.ip || '?') + '<br>Location: ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?') + '<br>ISP: ' + (homeInfo.isp || '?');
+    document.getElementById('tb-home').textContent = (homeInfo.ip || '?') + ' - ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?');
 
     for (var m = 0; m < d.conns.length; m++) {
       var ck = d.conns[m].ip + ':' + d.conns[m].port;
@@ -1004,6 +1037,22 @@ function updateSystemStats(sys) {
   if (!sys) return;
   var cpuCol = sys.cpu < 50 ? 'var(--green)' : sys.cpu < 80 ? 'var(--orange)' : 'var(--red)';
   var ramCol = sys.ram_pct < 50 ? 'var(--green)' : sys.ram_pct < 80 ? 'var(--orange)' : 'var(--red)';
+  document.getElementById('tb-cpu').textContent = sys.cpu + '%';
+  document.getElementById('tb-cpu').style.color = cpuCol;
+  document.getElementById('tb-ram').textContent = sys.ram_pct + '%';
+  document.getElementById('tb-ram').style.color = ramCol;
+  if (sys.cpu_temp > 0) {
+    var tCol = sys.cpu_temp < 60 ? 'var(--green)' : sys.cpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
+    document.getElementById('tb-cpu-temp-wrap').style.display = '';
+    document.getElementById('tb-cpu-temp').textContent = sys.cpu_temp + 'C';
+    document.getElementById('tb-cpu-temp').style.color = tCol;
+  }
+  if (sys.gpu_temp > 0) {
+    var gCol = sys.gpu_temp < 60 ? 'var(--green)' : sys.gpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
+    document.getElementById('tb-gpu-temp-wrap').style.display = '';
+    document.getElementById('tb-gpu-temp').textContent = sys.gpu_temp + 'C';
+    document.getElementById('tb-gpu-temp').style.color = gCol;
+  }
   var html = '<div class="stat-row"><span class="label">CPU</span><span class="value" style="color:' + cpuCol + '">' + sys.cpu + '%</span></div>';
   html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.cpu + '%;background:' + cpuCol + '"></div></div>';
   html += '<div class="stat-row"><span class="label">RAM</span><span class="value" style="color:' + ramCol + '">' + fmtB(sys.ram_used) + ' / ' + fmtB(sys.ram_total) + '</span></div>';
@@ -1012,9 +1061,7 @@ function updateSystemStats(sys) {
     html += '<div class="stat-row"><span class="label">Swap</span><span class="value">' + fmtB(sys.swap_used) + '</span></div>';
     html += '<div class="sys-bar"><div class="sys-bar-fill" style="width:' + sys.swap_pct + '%;background:var(--text3)"></div></div>';
   }
-  if (sys.disk_read > 0 || sys.disk_write > 0) {
-    html += '<div class="stat-row"><span class="label">Disk R/W</span><span class="value">' + sys.disk_read.toFixed(1) + ' / ' + sys.disk_write.toFixed(1) + ' MB/s</span></div>';
-  }
+  html += '<div class="stat-row"><span class="label">Disk R/W</span><span class="value">' + sys.disk_read.toFixed(1) + ' / ' + sys.disk_write.toFixed(1) + ' MB/s</span></div>';
   if (sys.cpu_temp > 0) {
     var tCol = sys.cpu_temp < 60 ? 'var(--green)' : sys.cpu_temp < 80 ? 'var(--orange)' : 'var(--red)';
     html += '<div class="stat-row"><span class="label">CPU Temp</span><span class="value" style="color:' + tCol + '">' + sys.cpu_temp + ' C</span></div>';
@@ -1029,6 +1076,8 @@ function updateWifiStats(wifi) {
   if (!wifi) return;
   if (!wifi.ssid && wifi.signal === 0) {
     document.getElementById('st-wifi').innerHTML = '<div style="font-size:11px;color:var(--text3)">Not connected to WiFi</div>';
+    document.getElementById('tb-wifi').textContent = 'None';
+    document.getElementById('tb-wifi').style.color = 'var(--text3)';
     return;
   }
   var sigCol = wifi.signal > -50 ? 'var(--green)' : wifi.signal > -70 ? 'var(--orange)' : 'var(--red)';
@@ -1039,11 +1088,17 @@ function updateWifiStats(wifi) {
   if (wifi.freq) html += '<div class="stat-row"><span class="label">Frequency</span><span class="value">' + wifi.freq + '</span></div>';
   if (wifi.speed) html += '<div class="stat-row"><span class="label">Speed</span><span class="value">' + wifi.speed + ' Mb/s</span></div>';
   document.getElementById('st-wifi').innerHTML = html;
+  document.getElementById('tb-wifi').textContent = wifi.ssid + ' ' + wifi.signal + 'dBm';
+  document.getElementById('tb-wifi').style.color = sigCol;
 }
 function updateVpnStatus(vpn) {
   var sec = document.getElementById('vpn-section');
-  if (!vpn || !vpn.interfaces || vpn.interfaces.length === 0) { sec.style.display = 'none'; return; }
+  if (!vpn || !vpn.interfaces || vpn.interfaces.length === 0) { sec.style.display = 'none'; document.getElementById('tb-vpn').textContent = 'Off'; document.getElementById('tb-vpn').style.color = 'var(--text3)'; return; }
   sec.style.display = '';
+  var col = vpn.active ? 'var(--green)' : 'var(--text3)';
+  var status = vpn.active ? 'Active' : 'Inactive';
+  document.getElementById('tb-vpn').textContent = vpn.interfaces[0];
+  document.getElementById('tb-vpn').style.color = col;
   var col = vpn.active ? 'var(--green)' : 'var(--text3)';
   var status = vpn.active ? 'Connected' : 'Inactive';
   var html = '<div class="stat-row"><span class="label">Status</span><span class="value" style="color:' + col + '">' + status + '</span></div>';
