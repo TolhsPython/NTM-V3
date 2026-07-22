@@ -12,10 +12,12 @@
 body.true-dark, html.dark-theme{--bg:#000000;--bg2:#0a0a0a;--bg3:#111111;--bg4:#1a1a1a;--border:#222222;--text:#e0e0e0;--text2:#888888;--text3:#555555;--blue:#5599ee;--cyan:#44aaaa;--green:#66aa55;--red:#cc4455;--magenta:#aa66cc;--orange:#bb8844;--yellow:#ccaa44}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:13px}
 #app{display:flex;flex-direction:column;height:100vh;width:100vw}
-#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:stretch;gap:0;padding:3px 0;flex-shrink:0;min-height:28px;position:relative}
+#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-wrap:nowrap;align-items:center;gap:0;padding:3px 0;flex-shrink:0;min-height:28px;position:relative;overflow-x:auto;overflow-y:hidden}
+#top-bar::-webkit-scrollbar{height:3px}#top-bar::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 #top-bar-resize{position:absolute;bottom:-3px;left:0;width:100%;height:6px;cursor:row-resize;z-index:10;transition:background .15s}
 #top-bar-resize:hover,#top-bar-resize.dragging{background:var(--blue)}
 .tb-sec{display:flex;align-items:center;gap:6px;padding:2px 10px;border-right:1px solid var(--border)}
+.tb-sec.tb-stack{flex-direction:column;align-items:flex-start;gap:1px;padding:1px 8px}
 .tb-sec:last-child{border-right:none}
 .tb-sec:last-child{margin-left:auto}
 #top-bar .tb-item{display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:var(--text2);min-width:50px}
@@ -29,7 +31,7 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 #top-bar button.tb-red:disabled{opacity:.5;cursor:default}
 #top-bar .kb{font-size:9px;color:var(--text3);display:flex;gap:4px;align-items:center}
 #top-bar .kb kbd{background:var(--bg4);padding:1px 4px;border-radius:2px;font-size:9px;color:var(--text2)}
-#tb-home-wrap{flex-direction:column;align-items:flex-start;gap:0}
+#tb-home-wrap{flex-direction:row !important;align-items:center;gap:0}
 .tb-sub{font-size:9px;color:var(--text3);font-weight:400;line-height:1}
 .tb-mini-bar{width:24px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;flex-shrink:0}
 .tb-mini-bar-fill{height:100%;border-radius:2px;transition:width .3s ease}
@@ -57,11 +59,12 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .stat-row{display:flex;justify-content:space-between;padding:2px 0;font-size:12px}.stat-row .label{color:var(--text3)}.stat-row .value{font-weight:600}
 .section-title{font-size:10px;font-weight:600;color:var(--text3);text-transform:uppercase;letter-spacing:1px;margin:6px 0 4px 0}
 .home-box{background:var(--bg);border:1px solid var(--border);border-radius:4px;padding:8px 10px;font-size:11px;line-height:1.5;color:var(--text2)}
-.lookup-row{display:flex;gap:5px}
-.lookup-row input{flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:inherit;font-size:12px;outline:none}
+.lookup-row{display:flex;gap:5px;min-width:0;overflow:hidden}
+.lookup-row input{flex:1;min-width:0;max-width:100%;background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:inherit;font-size:12px;outline:none}
 .lookup-row input:focus{border-color:var(--blue)}.lookup-row input::placeholder{color:var(--text3)}
 .lookup-row button{background:var(--blue);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500}
 .lookup-row button:hover{opacity:.85}
+input[type=number]::-webkit-inner-spin-button,input[type=number]::-webkit-outer-spin-button{-webkit-appearance:none;margin:0}
 select{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:5px;border-radius:4px;font-family:inherit;font-size:12px;width:100%;outline:none}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
 #map{flex:1;min-height:100px;background:#111;overflow:hidden;position:relative}
@@ -185,21 +188,31 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 <div id="app">
   <div id="top-bar">
     <div id="top-bar-resize"></div>
-    <div class="tb-sec">
+    <div class="tb-sec tb-stack">
       <div class="tb-item"><span class="tb-label">CPU</span><span class="tb-val" id="tb-cpu">0%</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-cpu-bar" style="width:0%;background:var(--green)"></div></div></div>
-      <div class="tb-item"><span class="tb-label">RAM</span><span class="tb-val" id="tb-ram">0%</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-ram-bar" style="width:0%;background:var(--green)"></div></div></div>
       <div class="tb-item" id="tb-cpu-temp-wrap" style="display:none"><span class="tb-label">CPU T</span><span class="tb-val" id="tb-cpu-temp">0C</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-cpu-temp-bar" style="width:0%;background:var(--green)"></div></div></div>
-      <div class="tb-item" id="tb-gpu-temp-wrap" style="display:none"><span class="tb-label">GPU T</span><span class="tb-val" id="tb-gpu-temp">0C</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-gpu-temp-bar" style="width:0%;background:var(--green)"></div></div></div>
+    </div>
+    <div class="tb-sec tb-stack">
+      <div class="tb-item"><span class="tb-label">RAM</span><span class="tb-val" id="tb-ram">0%</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-ram-bar" style="width:0%;background:var(--green)"></div></div></div>
       <div class="tb-item"><span class="tb-label">Disk</span><span class="tb-val" id="tb-disk">--</span></div>
+    </div>
+    <div class="tb-sec tb-stack">
+      <div class="tb-item" id="tb-gpu-temp-wrap" style="display:none"><span class="tb-label">GPU T</span><span class="tb-val" id="tb-gpu-temp">0C</span><div class="tb-mini-bar"><div class="tb-mini-bar-fill" id="tb-gpu-temp-bar" style="width:0%;background:var(--green)"></div></div></div>
     </div>
     <div class="tb-sec">
       <div class="tb-item"><span class="tb-label">WiFi</span><span class="tb-val" id="tb-wifi">--</span></div>
       <div class="tb-item"><span class="tb-label">VPN</span><span class="tb-val" id="tb-vpn" style="color:var(--text3)">Off</span></div>
     </div>
-    <div class="tb-sec">
-      <div class="tb-item" id="tb-home-wrap"><span class="tb-label">Your PC</span><span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span><span class="tb-sub" id="tb-home-sub"></span><button onclick="fallbackPinLocation()" style="margin-top:1px;font-size:10px;padding:2px 6px">Pin</button></div>
+    <div class="tb-sec" style="flex-shrink:0">
+      <div class="tb-item" id="tb-home-wrap" style="white-space:nowrap;gap:6px">
+        <span class="tb-label">Server</span>
+        <span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span>
+        <span class="tb-label" style="margin-left:6px">You</span>
+        <span class="tb-val" id="tb-you" style="color:var(--cyan)">--</span>
+        <button onclick="startPickLocation()" style="margin-left:4px;font-size:10px;padding:2px 6px">Pin</button>
+      </div>
     </div>
-    <div class="tb-sec">
+    <div class="tb-sec" style="flex-shrink:0">
       <div class="tb-item"><button onclick="scanLan()">LAN</button></div>
       <div class="tb-item"><button onclick="takeScreenshot()">Snap</button></div>
       <div class="tb-item"><button onclick="exportCsv()">CSV</button></div>
@@ -207,12 +220,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="tb-item"><button onclick="generateReport()">Report</button></div>
       <div class="tb-item"><button onclick="openSettings()">Settings</button></div>
       <div class="tb-item"><button onclick="runTraceAll()" id="btn-trace-all" class="tb-red">Trace All</button></div>
-    </div>
-    <div class="tb-sec">
-      <div class="kb"><kbd>Ctrl+F</kbd> Filter <kbd>Ctrl+E</kbd> CSV <kbd>Ctrl+S</kbd> Snap <kbd>Esc</kbd> Close</div>
-    </div>
-    <div class="tb-sec">
-      <div class="lookup-row" style="margin:0"><input id="lookup-input" placeholder="IP or domain..." style="width:120px;padding:2px 6px;font-size:10px"/><button onclick="doLookup()" style="padding:2px 8px;font-size:9px">Locate</button></div>
     </div>
   </div>
   <div id="mid">
@@ -269,7 +276,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
           <div id="bottom-connections">
             <div id="bottom-header">
               <span style="font-size:10px;font-weight:600;color:var(--text3)">CONNECTIONS</span><span id="bh-count" style="background:var(--bg4);color:var(--text2);padding:0 6px;border-radius:8px;font-size:9px;margin-left:4px">0</span><div style="flex:1"></div>
-              <div class="search-row" style="margin:0"><input id="conn-search" placeholder="Filter..." oninput="applyFilter()"/><button id="btn-group-svc" onclick="toggleGrouping('service')" title="Group by service">S</button><button id="btn-group-proc" onclick="toggleGrouping('process')" title="Group by process">P</button><button onclick="exportCsv()">Export</button></div>
+              <div class="search-row" style="margin:0"><input id="conn-search" placeholder="Filter..." oninput="applyFilter()"/><input id="lookup-input" placeholder="IP or domain..." style="width:120px;padding:2px 8px;font-size:11px"/><button onclick="doLookup()" style="padding:2px 8px;font-size:11px">Locate</button><button id="btn-group-svc" onclick="toggleGrouping('service')" title="Group by service">S</button><button id="btn-group-proc" onclick="toggleGrouping('process')" title="Group by process">P</button><button onclick="exportCsv()">Export</button></div>
             </div>
             <div class="tbl-hdr"><span>App</span><span>Proto</span><span>Destination</span><span>Location</span><span>ISP</span><span>State</span><span>Age</span><span>Up</span><span>Down</span></div>
             <div id="table-wrap"></div>
@@ -320,7 +327,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     <div id="sidebar-right-resize"></div>
     <div class="sb-section" data-id="ping">
       <div class="section-title">Ping Monitor</div>
-      <div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div>
+      <div class="lookup-row"><input id="ping-input" placeholder="Host or IP..."/><input id="ping-count" type="number" min="1" max="100" value="3" style="width:36px;flex:none;padding:5px 4px;font-size:11px;-moz-appearance:textfield;appearance:textfield" title="Ping count"/><input id="ping-size" type="number" min="0" max="65507" value="0" placeholder="B" style="width:44px;flex:none;padding:5px 4px;font-size:11px;-moz-appearance:textfield;appearance:textfield" title="Packet size (bytes)"/><button onclick="pingHost()" style="flex:none">Ping</button></div>
       <div id="st-ping-results"></div>
     </div>
     <div class="sb-section" data-id="vpn" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
@@ -338,6 +345,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
   </div>
 </div>
 <div id="detail-bg" onclick="closeDetail()"></div>
+<div id="toast" style="display:none;position:fixed;top:50%;left:50%;transform:translate(-50%,-50%);background:var(--bg2);border:1px solid var(--blue);color:var(--text);padding:10px 20px;border-radius:8px;font-size:13px;z-index:5000;pointer-events:none;box-shadow:0 4px 20px rgba(0,0,0,0.5)"></div>
 <div id="detail"><div class="detail-hdr"><div><div class="ip" id="d-ip"></div><div class="loc" id="d-loc"></div></div><button class="close-btn" onclick="closeDetail()">&times;</button></div><div id="d-body"></div></div>
 <div id="settings-overlay" onclick="if(event.target===this)closeSettings()"><div id="settings-box">
   <h2>Settings</h2>
@@ -415,7 +423,7 @@ function getIpColor(ip) {
 }
 
 var map, tileLayer, canvasOverlay, ovCtx;
-var settings = {}, geoCache = {}, homeInfo = {};
+var settings = {}, geoCache = {}, homeInfo = {}, yourLocation = null, pickingLocation = false;
 var lastConns = [], selectedIp = null, detailKey = null, groupMode = null, filterQuery = '';
 var allTraceData = {};
 var processDetails = {}, isRecording = false, connHistory = {};
@@ -462,8 +470,10 @@ function initMap() {
 
   map.on('move zoom resize', renderOverlay);
   map.on('moveend', renderOverlay);
+  map.on('click', pickLocationHandler);
 
   map.on('click', function(e) {
+    if (!pickingLocation && !e._pickHandled) {
     var cp = e.containerPoint;
     var ds = settings.dot_size || 6;
     var hitRadius = ds + 12;
@@ -522,6 +532,7 @@ function initMap() {
       closeDetail();
       document.querySelectorAll('.tbl-row.selected').forEach(function(el) { el.classList.remove('selected'); });
       renderOverlay();
+    }
     }
   });
 }
@@ -622,6 +633,40 @@ function renderOverlay() {
       ovCtx.strokeStyle = '#fff';
       ovCtx.lineWidth = 2;
       ovCtx.stroke();
+      ovCtx.font = 'bold 10px monospace';
+      ovCtx.fillStyle = '#fff';
+      ovCtx.globalAlpha = 0.9;
+      ovCtx.fillText(homeInfo.city || 'Server', hp.x + 12, hp.y + 4);
+      ovCtx.globalAlpha = 1;
+    }
+  }
+
+  if (yourLocation && yourLocation.lat != null) {
+    var yp = map.latLngToContainerPoint([yourLocation.lat, yourLocation.lon]);
+    if (yp.x >= -50 && yp.x <= w + 50 && yp.y >= -50 && yp.y <= h + 50) {
+      if (hp) {
+        ovCtx.beginPath();
+        ovCtx.moveTo(hp.x, hp.y);
+        ovCtx.lineTo(yp.x, yp.y);
+        ovCtx.strokeStyle = 'rgba(0,212,255,0.5)';
+        ovCtx.lineWidth = 2;
+        ovCtx.setLineDash([6, 4]);
+        ovCtx.stroke();
+        ovCtx.setLineDash([]);
+      }
+      ovCtx.beginPath();
+      ovCtx.arc(yp.x, yp.y, 8, 0, Math.PI * 2);
+      ovCtx.fillStyle = '#00d4ff';
+      ovCtx.globalAlpha = 1;
+      ovCtx.fill();
+      ovCtx.strokeStyle = '#fff';
+      ovCtx.lineWidth = 2;
+      ovCtx.stroke();
+      ovCtx.font = 'bold 10px monospace';
+      ovCtx.fillStyle = '#fff';
+      ovCtx.globalAlpha = 0.9;
+      ovCtx.fillText('YOU', yp.x + 12, yp.y + 4);
+      ovCtx.globalAlpha = 1;
     }
   }
 
@@ -1154,7 +1199,7 @@ window.pushUpdate = function(d) {
     document.getElementById('st-talkers').innerHTML = th || '<div style="font-size:11px;color:var(--text3)">No traffic yet</div>';
 
     document.getElementById('tb-home').textContent = (homeInfo.ip || '?') + ' - ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?');
-    document.getElementById('tb-home-sub').textContent = 'ISP: ' + (homeInfo.isp || '?');
+    document.getElementById('tb-home').title = 'ISP: ' + (homeInfo.isp || '?');
 
     for (var m = 0; m < d.conns.length; m++) {
       var ck = d.conns[m].ip + ':' + d.conns[m].port;
@@ -1258,6 +1303,7 @@ function scanLan() {
 async function getLanDevices() {
   if (!window.pywebview) return;
   var devs = JSON.parse(await pywebview.api.get_lan_devices());
+  window._lanDevices = devs;
   var h = '';
   for (var i = 0; i < devs.length; i++) {
     h += '<div class="lan-item"><span class="lan-ip">' + devs[i].ip + '</span><span class="lan-mac">' + devs[i].mac + '</span></div>';
@@ -1266,11 +1312,22 @@ async function getLanDevices() {
 }
 async function pingHost() {
   var host = document.getElementById('ping-input').value.trim();
+  var count = parseInt(document.getElementById('ping-count').value) || 3;
+  var psize = parseInt(document.getElementById('ping-size').value) || 0;
   if (!host || !window.pywebview) return;
-  var r = JSON.parse(await pywebview.api.ping_host(host));
-  var cls = r.rtt < 50 ? 'var(--green)' : r.rtt < 150 ? 'var(--orange)' : 'var(--red)';
-  var h = '<div class="ping-item"><span class="ping-host">' + host + '</span><span class="ping-val" style="color:' + cls + '">' + r.rtt.toFixed(1) + ' ms</span></div>';
-  h += '<div style="font-size:10px;color:var(--text3)">Loss: ' + r.loss + '% | Jitter: ' + r.jitter.toFixed(1) + ' ms</div>';
+  document.getElementById('st-ping-results').innerHTML = '<div style="font-size:11px;color:var(--text3)">Pinging ' + host + ' ' + count + ' times' + (psize > 0 ? ' (' + psize + ' bytes)' : '') + '...</div>';
+  var r = JSON.parse(await pywebview.api.ping_host(host, count, psize));
+  var h = '';
+  if (r.results) {
+    for (var i = 0; i < r.results.length; i++) {
+      var p = r.results[i];
+      var cls = p.rtt === 0 ? 'var(--red)' : p.rtt < 50 ? 'var(--green)' : p.rtt < 150 ? 'var(--orange)' : 'var(--red)';
+      var txt = p.rtt === 0 ? 'Timeout' : p.rtt.toFixed(1) + ' ms';
+      h += '<div class="ping-item" style="padding:1px 0"><span style="color:var(--text3);font-size:10px">#' + (i+1) + '</span> <span class="ping-val" style="color:' + cls + '">' + txt + '</span></div>';
+    }
+    var avgCls = r.avg < 50 ? 'var(--green)' : r.avg < 150 ? 'var(--orange)' : 'var(--red)';
+    h += '<div style="font-size:10px;color:var(--text3);border-top:1px solid var(--border);padding-top:3px;margin-top:3px">Avg: <span style="color:' + avgCls + '">' + r.avg.toFixed(1) + ' ms</span> | Loss: ' + r.loss.toFixed(0) + '% | Jitter: ' + r.jitter.toFixed(1) + ' ms | ' + r.received + '/' + r.sent + ' received</div>';
+  }
   document.getElementById('st-ping-results').innerHTML = h + document.getElementById('st-ping-results').innerHTML;
 }
 async function runTrace() {
@@ -1459,12 +1516,24 @@ function showScansTab() {
   document.getElementById('st-data-usage').style.display = 'none';
   document.getElementById('st-scans-tab').style.display = '';
 }
-function fallbackPinLocation() {
-  if (homeInfo.lat != null) {
-    document.getElementById('tb-home').textContent = 'Pinned ' + homeInfo.lat.toFixed(4) + ', ' + homeInfo.lon.toFixed(4);
-    document.getElementById('tb-home-sub').textContent = (homeInfo.ip || '') + ' | ' + (homeInfo.isp || '');
-    map.setView([homeInfo.lat, homeInfo.lon], map.getZoom());
-    renderOverlay();
+function startPickLocation() {
+  pickingLocation = true;
+  map.getContainer().style.cursor = 'crosshair';
+  var toast = document.getElementById('toast');
+  if (toast) { toast.textContent = 'Click on the map to mark your real location'; toast.style.display = 'block'; setTimeout(function() { toast.style.display = 'none'; }, 5000); }
+}
+
+function pickLocationHandler(e) {
+  if (!pickingLocation) return;
+  pickingLocation = false;
+  e._pickHandled = true;
+  map.getContainer().style.cursor = '';
+  yourLocation = { lat: e.latlng.lat, lon: e.latlng.lng };
+  document.getElementById('tb-you').textContent = yourLocation.lat.toFixed(4) + ', ' + yourLocation.lon.toFixed(4);
+  document.getElementById('tb-you').title = 'Your pinned location';
+  renderOverlay();
+  if (window.pywebview) {
+    try { pywebview.api.save_settings(JSON.stringify({ your_lat: yourLocation.lat, your_lon: yourLocation.lon })); } catch(e) {}
   }
 }
 
@@ -1474,7 +1543,7 @@ window.pushHomeUpdate = function(h) {
   if (!h || h.lat == null) return;
   homeInfo = h;
   document.getElementById('tb-home').textContent = (h.ip || '?') + ' - ' + h.city + ', ' + h.country;
-  document.getElementById('tb-home-sub').textContent = 'ISP: ' + (h.isp || '?');
+  document.getElementById('tb-home').title = 'ISP: ' + (h.isp || '?') + ' | ' + (h.lat != null ? h.lat.toFixed(4) : '') + ', ' + (h.lon != null ? h.lon.toFixed(4) : '');
   if (map && lastConns.length) {
     map.setView([h.lat, h.lon], Math.max(map.getZoom(), 3), { animate: false });
   }
@@ -1836,6 +1905,11 @@ async function boot() {
   if (settings.text_color) applyTextColor(settings.text_color);
   if (settings.dl_label) document.getElementById('dl-label').textContent = settings.dl_label;
   if (settings.ul_label) document.getElementById('ul-label').textContent = settings.ul_label;
+  if (settings.your_lat != null && settings.your_lon != null) {
+    yourLocation = { lat: settings.your_lat, lon: settings.your_lon };
+    document.getElementById('tb-you').textContent = yourLocation.lat.toFixed(4) + ', ' + yourLocation.lon.toFixed(4);
+    document.getElementById('tb-you').title = 'Your pinned location';
+  }
   map.invalidateSize();
 
   var data = JSON.parse(await pywebview.api.get_connections());
@@ -1849,7 +1923,7 @@ async function boot() {
     updateServiceSummary(lastConns);
     document.getElementById('bh-count').textContent = lastConns.length;
     document.getElementById('tb-home').textContent = (homeInfo.ip || '?') + ' - ' + (homeInfo.city || '?') + ', ' + (homeInfo.country || '?');
-    document.getElementById('tb-home-sub').textContent = 'ISP: ' + (homeInfo.isp || '?');
+    document.getElementById('tb-home').title = 'ISP: ' + (homeInfo.isp || '?');
   }
 
   getNetInterfaces();
@@ -1949,21 +2023,18 @@ async function runDeviceDiscovery() {
   document.getElementById('tool-dd-result').innerHTML = '<div style="color:var(--text3)">Scanning LAN...</div>';
   await pywebview.api.scan_lan();
   var poll = setInterval(async function() {
-    var r = JSON.parse(await pywebview.api.get_lan_devices());
-    if (!r.scanning) {
+    try {
+      var devices = JSON.parse(await pywebview.api.get_lan_devices());
+      if (!Array.isArray(devices) || devices.length === 0) return;
       clearInterval(poll);
-      window._lanDevices = r.devices;
-      if (r.devices.length) {
-        var html = '<table><tr><th>IP</th><th>MAC</th><th>Hostname</th></tr>';
-        r.devices.forEach(function(d) {
-          html += '<tr><td style="color:var(--blue)">' + d.ip + '</td><td style="color:var(--text3)">' + d.mac + '</td><td>' + (d.hostname || '-') + '</td></tr>';
-        });
-        document.getElementById('tool-dd-result').innerHTML = html + '</table>';
-      } else {
-        document.getElementById('tool-dd-result').innerHTML = '<div style="color:var(--text3)">No devices found</div>';
-      }
-    }
-  }, 1000);
+      window._lanDevices = devices;
+      var html = '<table><tr><th>IP</th><th>MAC</th><th>Hostname</th></tr>';
+      devices.forEach(function(d) {
+        html += '<tr><td style="color:var(--blue)">' + d.ip + '</td><td style="color:var(--text3)">' + d.mac + '</td><td>' + (d.hostname || '-') + '</td></tr>';
+      });
+      document.getElementById('tool-dd-result').innerHTML = html + '</table>';
+    } catch(e) {}
+  }, 1500);
 }
 
 var _dnsPoll = null;

@@ -1297,21 +1297,29 @@ class PingMonitor:
         self.targets = {}
         self.history = {}
 
-    def ping(self, host, count=3):
-        try:
-            out = subprocess.check_output(
-                ["ping", "-c", str(count), "-W", "2", host],
-                stderr=subprocess.DEVNULL, timeout=10
-            ).decode("utf-8", errors="ignore")
-            avg = re.search(r"rtt min/avg/max/mdev = [\d.]+/([\d.]+)/", out)
-            loss = re.search(r"(\d+)% packet loss", out)
-            jitter = re.search(r"mdev = ([\d.]+) ms", out)
-            rtt = float(avg.group(1)) if avg else 0
-            pkt_loss = float(loss.group(1)) if loss else 100
-            jitt = float(jitter.group(1)) if jitter else 0
-            return {"rtt": rtt, "loss": pkt_loss, "jitter": jitt}
-        except Exception:
-            return {"rtt": 0, "loss": 100, "jitter": 0}
+    def ping(self, host, count=3, size=0):
+        results = []
+        cmd = ["ping", "-c", "1", "-W", "2"]
+        if size > 0:
+            cmd += ["-s", str(min(size, 65507))]
+        cmd.append(host)
+        for i in range(count):
+            try:
+                out = subprocess.check_output(
+                    cmd, stderr=subprocess.DEVNULL, timeout=5
+                ).decode("utf-8", errors="ignore")
+                m = re.search(r"time=(\d+\.?\d*)", out)
+                rtt = float(m.group(1)) if m else 0
+                loss = 0 if m else 100
+                results.append({"rtt": rtt, "loss": loss})
+            except Exception:
+                results.append({"rtt": 0, "loss": 100})
+        rtts = [r["rtt"] for r in results if r["rtt"] > 0]
+        losses = [1 if r["loss"] > 0 else 0 for r in results]
+        avg_rtt = sum(rtts) / len(rtts) if rtts else 0
+        loss_pct = (sum(losses) / len(losses) * 100) if losses else 100
+        jitter = max(rtts) - min(rtts) if len(rtts) > 1 else 0
+        return {"results": results, "avg": avg_rtt, "loss": loss_pct, "jitter": jitter, "sent": count, "received": len(rtts)}
 
     def track(self, host):
         threading.Thread(target=self._track_host, args=(host,), daemon=True).start()
@@ -1586,6 +1594,23 @@ class Api:
         save_cache(self.geo)
 
     def _resolve_home(self):
+        pinned_lat = self.settings.get("home_lat")
+        pinned_lon = self.settings.get("home_lon")
+        if pinned_lat is not None and pinned_lon is not None:
+            self.home = {"lat": float(pinned_lat), "lon": float(pinned_lon), "ip": "?",
+                         "city": "Pinned", "country": "", "isp": ""}
+            try:
+                r = requests.get("http://ip-api.com/json/?fields=query,isp", timeout=4)
+                if r.status_code == 200:
+                    d = r.json()
+                    if d.get("status") == "success":
+                        self.home["ip"] = d.get("query", "?")
+                        self.home["isp"] = d.get("isp", "?")
+            except Exception:
+                pass
+            self.home_ready.set()
+            self._push_home()
+            return
         try:
             r = requests.get("http://ip-api.com/json/?fields=status,country,city,lat,lon,query,isp", timeout=4)
             if r.status_code == 200:
@@ -2103,8 +2128,10 @@ class Api:
         except Exception as e:
             return json.dumps({'ok': False, 'error': str(e)})
 
-    def ping_host(self, host):
-        result = self.ping_monitor.ping(host)
+    def ping_host(self, host, count=3, size=0):
+        count = max(1, min(100, int(count))) if count else 3
+        size = max(0, min(65507, int(size))) if size else 0
+        result = self.ping_monitor.ping(host, count=count, size=size)
         self.ping_monitor.track(host)
         return json.dumps(result)
 
