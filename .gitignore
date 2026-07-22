@@ -3,6 +3,7 @@ __pycache__/
 geoip_cache.json
 settings.json
 panel_sizes.json
+section_order.json
 data/
 recordings/
 reports/

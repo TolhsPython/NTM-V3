@@ -1811,6 +1811,167 @@ class Api:
                 pass
         return json.dumps(self.settings.get("panel_sizes", {}))
 
+    def save_section_order(self, data):
+        try:
+            d = json.loads(data) if isinstance(data, str) else data
+            order_file = os.path.join(BASE_DIR, "section_order.json")
+            with open(order_file, "w") as f:
+                json.dump(d, f, indent=2)
+            log(f"Section order saved: {d}")
+        except Exception as e:
+            log(f"Section order save error: {e}")
+        return json.dumps({"ok": True})
+
+    def get_section_order(self):
+        order_file = os.path.join(BASE_DIR, "section_order.json")
+        if os.path.exists(order_file):
+            try:
+                with open(order_file) as f:
+                    return f.read()
+            except Exception:
+                pass
+        return json.dumps({})
+
+    # ---- TOOLS ----
+
+    def port_scan(self, target, ports):
+        target = str(target).strip()
+        ports = str(ports).strip() if ports else "21,22,23,25,53,80,110,135,139,143,443,445,993,995,1433,1521,3306,3389,5432,5900,8080,8443"
+        port_list = []
+        for p in ports.split(","):
+            p = p.strip()
+            if "-" in p:
+                a, b = p.split("-", 1)
+                port_list.extend(range(int(a), int(b) + 1))
+            elif p.isdigit():
+                port_list.append(int(p))
+        if not port_list:
+            port_list = [21,22,23,25,53,80,110,135,139,143,443,445,993,995,1433,1521,3306,3389,5432,5900,8080,8443]
+        result = {"target": target, "open": [], "scanning": True}
+        self._port_scan_result = result
+        def _work():
+            open_ports = []
+            for port in port_list:
+                try:
+                    s = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+                    s.settimeout(0.5)
+                    if s.connect_ex((target, port)) == 0:
+                        open_ports.append(port)
+                    s.close()
+                except Exception:
+                    pass
+            result["open"] = open_ports
+            result["scanning"] = False
+            log(f"Port scan {target}: {len(open_ports)} open ports")
+        threading.Thread(target=_work, daemon=True).start()
+        return json.dumps({"started": True, "target": target, "ports": len(port_list)})
+
+    def get_port_scan_result(self):
+        return json.dumps(getattr(self, "_port_scan_result", {"open": [], "scanning": False}))
+
+    def dns_benchmark(self):
+        servers = [
+            ("8.8.8.8", "Google DNS"),
+            ("1.1.1.1", "Cloudflare"),
+            ("9.9.9.9", "Quad9"),
+            ("208.67.222.222", "OpenDNS"),
+            ("64.6.64.6", "Verisign"),
+            ("77.88.8.8", "Yandex DNS"),
+        ]
+        domains = ["google.com", "github.com", "amazon.com", "facebook.com", "wikipedia.org"]
+        result = {"servers": [], "running": True}
+        self._dns_bench_result = result
+        def _work():
+            for ip, name in servers:
+                times = []
+                fails = 0
+                for d in domains:
+                    try:
+                        import struct, random as _rnd
+                        sock = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+                        sock.settimeout(2)
+                        txn_id = _rnd.randint(0, 65535)
+                        header = struct.pack(">HHHHHH", txn_id, 0x0100, 1, 0, 0, 0)
+                        question = b""
+                        for part in d.split("."):
+                            question += bytes([len(part)]) + part.encode()
+                        question += b"\x00" + struct.pack(">HH", 1, 1)
+                        t0 = time.time()
+                        sock.sendto(header + question, (ip, 53))
+                        sock.recv(512)
+                        elapsed = round((time.time() - t0) * 1000, 1)
+                        times.append(elapsed)
+                        sock.close()
+                    except Exception:
+                        fails += 1
+                avg = round(sum(times) / len(times), 1) if times else -1
+                result["servers"].append({"name": name, "ip": ip, "avg_ms": avg, "ok": len(times), "fail": fails})
+            result["running"] = False
+            log("DNS benchmark complete")
+        threading.Thread(target=_work, daemon=True).start()
+        return json.dumps({"started": True})
+
+    def get_dns_benchmark_result(self):
+        return json.dumps(getattr(self, "_dns_bench_result", {"servers": [], "running": False}))
+
+    def wifi_scan(self):
+        result = {"interfaces": [], "running": True}
+        self._wifi_result = result
+        def _work():
+            try:
+                out = subprocess.check_output(
+                    ["nmcli", "-f", "SSID,SIGNAL,CHAN,BANDWIDTH,SECURITY", "device", "wifi", "list", "--rescan", "yes"],
+                    stderr=subprocess.DEVNULL, timeout=15
+                ).decode("utf-8", errors="ignore")
+                lines = out.strip().split("\n")
+                seen = set()
+                for line in lines[1:]:
+                    parts = line.split(None, 4)
+                    if len(parts) >= 4:
+                        ssid = parts[0]
+                        if ssid in seen or not ssid:
+                            continue
+                        seen.add(ssid)
+                        try:
+                            sig = int(parts[1])
+                        except (ValueError, IndexError):
+                            sig = 0
+                        chan = parts[2] if len(parts) > 2 else "?"
+                        bw = parts[3] if len(parts) > 3 else "?"
+                        sec = parts[4] if len(parts) > 4 else ""
+                        result["interfaces"].append({
+                            "ssid": ssid, "signal": sig, "channel": chan,
+                            "bandwidth": bw, "security": sec.strip()
+                        })
+            except FileNotFoundError:
+                try:
+                    out = subprocess.check_output(
+                        ["iwlist", "wlan0", "scan"], stderr=subprocess.DEVNULL, timeout=15
+                    ).decode("utf-8", errors="ignore")
+                    for block in out.split("Cell "):
+                        m_ssid = re.search(r'ESSID:"([^"]+)"')
+                        m_sig = re.search(r"Signal level=(-?\d+)")
+                        m_ch = re.search(r"Channel:(\d+)")
+                        if m_ssid:
+                            ssid = m_ssid.group(1)
+                            result["interfaces"].append({
+                                "ssid": ssid,
+                                "signal": int(m_sig.group(1)) if m_sig else 0,
+                                "channel": m_ch.group(1) if m_ch else "?",
+                                "bandwidth": "?", "security": ""
+                            })
+                except Exception:
+                    pass
+            except Exception:
+                pass
+            result["running"] = False
+            log(f"WiFi scan: {len(result['interfaces'])} networks found")
+        threading.Thread(target=_work, daemon=True).start()
+        return json.dumps({"started": True})
+
+    def get_wifi_result(self):
+        return json.dumps(getattr(self, "_wifi_result", {"interfaces": [], "running": False}))
+
     def get_interfaces(self):
         ifaces = {}
         try:

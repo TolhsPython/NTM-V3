@@ -12,25 +12,25 @@
 body.true-dark, html.dark-theme{--bg:#000000;--bg2:#0a0a0a;--bg3:#111111;--bg4:#1a1a1a;--border:#222222;--text:#e0e0e0;--text2:#888888;--text3:#555555;--blue:#5599ee;--cyan:#44aaaa;--green:#66aa55;--red:#cc4455;--magenta:#aa66cc;--orange:#bb8844;--yellow:#ccaa44}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:-apple-system,'Segoe UI',system-ui,sans-serif;font-size:13px}
 #app{display:flex;flex-direction:column;height:100vh;width:100vw}
-#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:stretch;gap:0;padding:0;flex-shrink:0;min-height:24px;position:relative}
+#top-bar{background:var(--bg2);border-bottom:1px solid var(--border);display:flex;flex-wrap:wrap;align-items:stretch;gap:0;padding:3px 0;flex-shrink:0;min-height:28px;position:relative}
 #top-bar-resize{position:absolute;bottom:-3px;left:0;width:100%;height:6px;cursor:row-resize;z-index:10;transition:background .15s}
 #top-bar-resize:hover,#top-bar-resize.dragging{background:var(--blue)}
-.tb-sec{display:flex;align-items:center;gap:6px;padding:2px 8px;border-right:1px solid var(--border)}
+.tb-sec{display:flex;align-items:center;gap:6px;padding:2px 10px;border-right:1px solid var(--border)}
 .tb-sec:last-child{border-right:none}
 .tb-sec:last-child{margin-left:auto}
-#top-bar .tb-item{display:flex;align-items:center;gap:3px;white-space:nowrap;font-size:10px;color:var(--text2);min-width:50px}
-#top-bar .tb-item .tb-label{color:var(--text3);font-size:8px;text-transform:uppercase;letter-spacing:0.5px}
-#top-bar .tb-item .tb-val{font-weight:600;font-size:10px;min-width:28px;text-align:right}
+#top-bar .tb-item{display:flex;align-items:center;gap:4px;white-space:nowrap;font-size:11px;color:var(--text2);min-width:50px}
+#top-bar .tb-item .tb-label{color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;font-weight:600}
+#top-bar .tb-item .tb-val{font-weight:600;font-size:11px;min-width:28px;text-align:right}
 #top-bar .tb-sep{display:none}
-#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px 14px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;white-space:nowrap}
-#top-bar button:hover{color:var(--text);border-color:#444}
+#top-bar button{background:var(--bg);border:1px solid var(--border);color:var(--text);padding:5px 14px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px;font-weight:500;white-space:nowrap;transition:all .15s}
+#top-bar button:hover{color:#fff;border-color:#555;background:var(--bg4)}
 #top-bar button.tb-red{background:rgba(224,108,117,0.15);border:1px solid var(--red);color:var(--red);font-weight:600}
 #top-bar button.tb-red:hover{background:var(--red);color:#fff}
 #top-bar button.tb-red:disabled{opacity:.5;cursor:default}
-#top-bar .kb{font-size:8px;color:var(--text3);display:flex;gap:4px;align-items:center}
-#top-bar .kb kbd{background:var(--bg4);padding:0 2px;border-radius:2px;font-size:8px}
+#top-bar .kb{font-size:9px;color:var(--text3);display:flex;gap:4px;align-items:center}
+#top-bar .kb kbd{background:var(--bg4);padding:1px 4px;border-radius:2px;font-size:9px;color:var(--text2)}
 #tb-home-wrap{flex-direction:column;align-items:flex-start;gap:0}
-.tb-sub{font-size:8px;color:var(--text3);font-weight:400;line-height:1}
+.tb-sub{font-size:9px;color:var(--text3);font-weight:400;line-height:1}
 .tb-mini-bar{width:24px;height:4px;background:var(--bg4);border-radius:2px;overflow:hidden;flex-shrink:0}
 .tb-mini-bar-fill{height:100%;border-radius:2px;transition:width .3s ease}
 #mid{display:flex;flex:1;overflow:hidden}
@@ -64,11 +64,37 @@ html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);fon
 .lookup-row button:hover{opacity:.85}
 select{background:var(--bg);color:var(--text);border:1px solid var(--border);padding:5px;border-radius:4px;font-family:inherit;font-size:12px;width:100%;outline:none}
 #main{flex:1;display:flex;flex-direction:column;overflow:hidden;position:relative}
-#map{flex:1;min-height:200px;background:#111;overflow:hidden;position:relative}
+#map{flex:1;min-height:100px;background:#111;overflow:hidden;position:relative}
 #overlay{position:absolute;top:0;left:0;width:100%;height:100%;z-index:450;pointer-events:none}
-#bottom{height:200px;min-height:80px;background:var(--bg2);border-top:1px solid var(--border);display:flex;flex-direction:column;overflow:hidden;position:relative}
+#bottom{height:350px;min-height:100px;display:flex;flex-direction:column;overflow:hidden;position:relative;background:var(--bg2);border-top:1px solid var(--border)}
 #bottom-resize{position:absolute;top:-3px;left:0;right:0;height:6px;cursor:row-resize;z-index:10;transition:background .15s}
 #bottom-resize:hover,#bottom-resize.dragging{background:var(--blue)}
+#bottom-tabs{display:flex;gap:0;padding:0;background:var(--bg3);border-bottom:1px solid var(--border);flex-shrink:0}
+#bottom-tabs .btab{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--text3);padding:5px 14px;font-family:inherit;font-size:11px;font-weight:500;cursor:pointer;transition:all .15s}
+#bottom-tabs .btab:hover{color:var(--text2);background:var(--bg4)}
+#bottom-tabs .btab.active{color:var(--text);border-bottom-color:var(--blue);background:var(--bg2)}
+#bottom-monitor{display:flex;flex:1;overflow:hidden}
+#bottom-tools{display:none;flex:1;overflow-y:auto;padding:12px;background:var(--bg2)}
+.tool-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.tool-card{background:var(--bg);border:1px solid var(--border);border-radius:6px;padding:12px;display:flex;flex-direction:column;gap:6px}
+.tool-title{font-size:12px;font-weight:600;color:var(--text)}
+.tool-desc{font-size:10px;color:var(--text3)}
+.tool-row{display:flex;gap:6px;align-items:center}
+.tool-row input{flex:1;background:var(--bg2);border:1px solid var(--border);color:var(--text);padding:5px 8px;border-radius:4px;font-family:inherit;font-size:11px;outline:none}
+.tool-row input:focus{border-color:var(--blue)}
+.tool-row button{background:var(--blue);color:#fff;border:none;padding:5px 12px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px;font-weight:500;white-space:nowrap}
+.tool-row button:hover{opacity:.85}
+.tool-result{flex:1;overflow-y:auto;padding:6px 0;font-family:'SF Mono',Consolas,monospace;font-size:10px;line-height:1.5;color:var(--text2);min-height:60px;max-height:200px}
+.tool-result table{width:100%;border-collapse:collapse}
+.tool-result th{text-align:left;color:var(--text3);font-size:9px;text-transform:uppercase;letter-spacing:0.5px;padding:3px 6px;border-bottom:1px solid var(--border)}
+.tool-result td{padding:3px 6px;border-bottom:1px solid var(--border)}
+.tool-result .bar{height:6px;border-radius:3px;background:var(--bg4);overflow:hidden;display:inline-block;vertical-align:middle;margin-left:6px}
+.tool-result .bar-fill{height:100%;border-radius:3px}
+#bottom-split{display:flex;flex:1;overflow:hidden}
+#bottom-connections{display:flex;flex-direction:column;flex:1;min-width:200px;overflow:hidden}
+#bottom-terminal{display:flex;flex-direction:column;width:350px;min-width:150px;overflow:hidden;padding:0 4px 4px 0}
+#bottom-split-resize{width:4px;cursor:col-resize;background:var(--border);flex-shrink:0;transition:background .15s}
+#bottom-split-resize:hover,#bottom-split-resize.dragging{background:var(--blue)}
 #bottom-header{padding:3px 10px;background:var(--bg3);border-bottom:1px solid var(--border);font-size:11px;flex-shrink:0;display:flex;gap:8px;align-items:center}
 #bottom-header .bh-title{color:var(--text3);font-weight:600}#bottom-header .bh-count{color:var(--blue);font-weight:600}
 #table-wrap{flex:1;overflow-y:auto;overflow-x:hidden}#table-wrap::-webkit-scrollbar{width:3px}#table-wrap::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
@@ -142,8 +168,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
 .badge-tcp{background:rgba(152,195,121,0.15);color:#98c379}.badge-udp{background:rgba(86,182,194,0.15);color:#56b6c2}.badge-quic{background:rgba(198,120,221,0.15);color:#c678dd}
 .svc-icon{margin-right:3px;font-size:12px}
 .btn-settings{width:100%;background:var(--bg4);color:var(--text2);border:1px solid var(--border);padding:7px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:12px}.btn-settings:hover{color:var(--text);border-color:#444}
-#console-section{display:flex;flex-direction:column;min-height:220px}
-#console-body{flex:1;overflow-y:auto;padding:4px 0;font-family:'SF Mono',Consolas,monospace;font-size:9px;line-height:1.4;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:4px;min-height:150px}
+#console-body{flex:1;overflow-y:auto;padding:4px 6px;font-family:'SF Mono',Consolas,monospace;font-size:10px;line-height:1.4;color:var(--text2);background:var(--bg);border:1px solid var(--border);border-radius:4px;min-height:0}
 #console-body::-webkit-scrollbar{width:3px}#console-body::-webkit-scrollbar-thumb{background:#333;border-radius:2px}
 .log-line{white-space:pre-wrap;word-break:break-all}
 .log-line.trace{color:var(--cyan)}
@@ -172,7 +197,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="tb-item"><span class="tb-label">VPN</span><span class="tb-val" id="tb-vpn" style="color:var(--text3)">Off</span></div>
     </div>
     <div class="tb-sec">
-      <div class="tb-item" id="tb-home-wrap"><span class="tb-label">Your PC</span><span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span><span class="tb-sub" id="tb-home-sub"></span><button onclick="fallbackPinLocation()" style="margin-top:1px;font-size:8px;padding:0 4px">Pin</button></div>
+      <div class="tb-item" id="tb-home-wrap"><span class="tb-label">Your PC</span><span class="tb-val" id="tb-home" style="color:var(--green)">Locating...</span><span class="tb-sub" id="tb-home-sub"></span><button onclick="fallbackPinLocation()" style="margin-top:1px;font-size:10px;padding:2px 6px">Pin</button></div>
     </div>
     <div class="tb-sec">
       <div class="tb-item"><button onclick="scanLan()">LAN</button></div>
@@ -184,7 +209,7 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="tb-item"><button onclick="runTraceAll()" id="btn-trace-all" class="tb-red">Trace All</button></div>
     </div>
     <div class="tb-sec">
-      <div class="kb"><kbd>Ctrl+F</kbd>Filter <kbd>Ctrl+E</kbd>CSV <kbd>Ctrl+S</kbd>Snap <kbd>Esc</kbd>Close</div>
+      <div class="kb"><kbd>Ctrl+F</kbd> Filter <kbd>Ctrl+E</kbd> CSV <kbd>Ctrl+S</kbd> Snap <kbd>Esc</kbd> Close</div>
     </div>
     <div class="tb-sec">
       <div class="lookup-row" style="margin:0"><input id="lookup-input" placeholder="IP or domain..." style="width:120px;padding:2px 6px;font-size:10px"/><button onclick="doLookup()" style="padding:2px 8px;font-size:9px">Locate</button></div>
@@ -199,18 +224,14 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div class="speed-val ul" id="sp-ul">0 KB/s</div><div style="font-size:10px;color:var(--text3)" id="ul-label">upload</div>
       <div class="speed-total" id="sp-tot"></div>
     </div>
-    <div class="sb-section" data-id="session">
-      <div class="section-title">Session</div>
-      <div class="stat-row"><span class="label">Duration</span><span class="value" id="st-sess-dur" style="color:var(--green)">0s</span></div>
-      <div class="stat-row"><span class="label">Sent</span><span class="value" id="st-sess-sent" style="color:var(--magenta)">0 B</span></div>
-      <div class="stat-row"><span class="label">Recv</span><span class="value" id="st-sess-recv" style="color:var(--cyan)">0 B</span></div>
-      <div style="margin-top:6px;display:flex;gap:5px">
-        <button id="btn-record" onclick="toggleRecording()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Record</button>
-      </div>
-      <div id="rec-status" style="font-size:9px;color:var(--text3);margin-top:3px"></div>
-      <div id="speedtest-status" style="font-size:9px;color:var(--text3);margin-top:2px"></div>
-    </div>
     <div class="sb-section" data-id="graph"><canvas id="graph-canvas" height="100"></canvas></div>
+    <div class="sb-section" data-id="stats">
+      <div class="stat-row"><span class="label">Connections</span><span class="value" id="st-total" style="color:var(--blue)">0</span></div>
+      <div class="stat-row"><span class="label">Mapped</span><span class="value" id="st-mapped" style="color:var(--cyan)">0</span></div>
+      <div class="stat-row"><span class="label">TCP / UDP</span><span class="value" id="st-proto">0 / 0</span></div>
+      <div class="stat-row"><span class="label">Avg Latency</span><span class="value" id="st-rtt" style="color:var(--orange)">0 ms</span></div>
+    </div>
+    <div class="sb-section" data-id="states"><div class="section-title">States</div><div id="st-states"></div></div>
     <div class="sb-section" data-id="usage">
       <div class="section-title">Data Usage</div>
       <div style="display:flex;gap:4px;margin-bottom:4px">
@@ -222,35 +243,88 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
       <div id="st-data-usage"></div>
       <div id="st-scans-tab" style="display:none"><div id="st-scans-inner"></div></div>
     </div>
-    <div class="sb-section" data-id="stats">
-      <div class="stat-row"><span class="label">Connections</span><span class="value" id="st-total" style="color:var(--blue)">0</span></div>
-      <div class="stat-row"><span class="label">Mapped</span><span class="value" id="st-mapped" style="color:var(--cyan)">0</span></div>
-      <div class="stat-row"><span class="label">TCP / UDP</span><span class="value" id="st-proto">0 / 0</span></div>
-      <div class="stat-row"><span class="label">Avg Latency</span><span class="value" id="st-rtt" style="color:var(--orange)">0 ms</span></div>
-    </div>
-    <div class="sb-section" data-id="ping">
-      <div class="section-title">Ping Monitor</div>
-      <div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div>
-      <div id="st-ping-results"></div>
+    <div class="sb-section" data-id="events"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
+    <div class="sb-section" data-id="session">
+      <div class="section-title">Session</div>
+      <div class="stat-row"><span class="label">Duration</span><span class="value" id="st-sess-dur" style="color:var(--green)">0s</span></div>
+      <div class="stat-row"><span class="label">Sent</span><span class="value" id="st-sess-sent" style="color:var(--magenta)">0 B</span></div>
+      <div class="stat-row"><span class="label">Recv</span><span class="value" id="st-sess-recv" style="color:var(--cyan)">0 B</span></div>
+      <div style="margin-top:6px;display:flex;gap:5px">
+        <button id="btn-record" onclick="toggleRecording()" style="flex:1;background:var(--bg);border:1px solid var(--border);color:var(--text2);padding:4px;border-radius:4px;cursor:pointer;font-family:inherit;font-size:11px">Record</button>
+      </div>
+      <div id="rec-status" style="font-size:9px;color:var(--text3);margin-top:3px"></div>
+      <div id="speedtest-status" style="font-size:9px;color:var(--text3);margin-top:2px"></div>
     </div>
   </div>
   <div id="main">
     <div id="map"></div>
     <div id="bottom">
       <div id="bottom-resize"></div>
-      <div id="bottom-header">
-        <span class="bh-title">Connections</span><span class="bh-count" id="bh-count">0</span><div style="flex:1"></div>
-        <div class="search-row" style="margin:0"><input id="conn-search" placeholder="Filter..." oninput="applyFilter()"/><button id="btn-group-svc" onclick="toggleGrouping('service')" title="Group by service">S</button><button id="btn-group-proc" onclick="toggleGrouping('process')" title="Group by process">P</button><button onclick="exportCsv()">Export</button></div>
+      <div id="bottom-tabs">
+        <button class="btab active" data-tab="monitor" onclick="switchBottomTab('monitor')">Monitor</button>
+        <button class="btab" data-tab="tools" onclick="switchBottomTab('tools')">Tools</button>
       </div>
-      <div class="tbl-hdr"><span>App</span><span>Proto</span><span>Destination</span><span>Location</span><span>ISP</span><span>State</span><span>Age</span><span>Up</span><span>Down</span></div>
-      <div id="table-wrap"></div>
+      <div id="bottom-monitor">
+        <div id="bottom-split">
+          <div id="bottom-connections">
+            <div id="bottom-header">
+              <span style="font-size:10px;font-weight:600;color:var(--text3)">CONNECTIONS</span><span id="bh-count" style="background:var(--bg4);color:var(--text2);padding:0 6px;border-radius:8px;font-size:9px;margin-left:4px">0</span><div style="flex:1"></div>
+              <div class="search-row" style="margin:0"><input id="conn-search" placeholder="Filter..." oninput="applyFilter()"/><button id="btn-group-svc" onclick="toggleGrouping('service')" title="Group by service">S</button><button id="btn-group-proc" onclick="toggleGrouping('process')" title="Group by process">P</button><button onclick="exportCsv()">Export</button></div>
+            </div>
+            <div class="tbl-hdr"><span>App</span><span>Proto</span><span>Destination</span><span>Location</span><span>ISP</span><span>State</span><span>Age</span><span>Up</span><span>Down</span></div>
+            <div id="table-wrap"></div>
+          </div>
+          <div id="bottom-split-resize"></div>
+          <div id="bottom-terminal">
+            <div id="console-toolbar">
+              <button onclick="clearConsole()">Clear</button>
+              <button id="btn-trace-all-bottom" onclick="runTraceAll()" style="background:rgba(224,108,117,0.15);border:1px solid var(--red);color:var(--red);font-weight:600">Trace All</button>
+              <span class="trace-progress" id="trace-progress-text"></span>
+            </div>
+            <div id="console-body"></div>
+          </div>
+        </div>
+      </div>
+      <div id="bottom-tools">
+        <div class="tool-grid">
+          <div class="tool-card">
+            <div class="tool-title">Port Scanner</div>
+            <div class="tool-desc">Scan a target for open ports</div>
+            <div class="tool-row"><input id="tool-ps-target" placeholder="IP or hostname" style="flex:1"/><input id="tool-ps-ports" placeholder="Ports (e.g. 22,80,443 or 1-1024)" style="flex:1"/><button onclick="runPortScan()">Scan</button></div>
+            <div class="tool-row"><input id="tool-ps-lan" placeholder="Or scan LAN device..." style="flex:1" readonly/><button onclick="fillLanTarget()">Pick LAN</button></div>
+            <div id="tool-ps-result" class="tool-result"></div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-title">Network Device Discovery</div>
+            <div class="tool-desc">Find all devices on your LAN and identify vendors</div>
+            <div class="tool-row"><button onclick="runDeviceDiscovery()">Discover Devices</button></div>
+            <div id="tool-dd-result" class="tool-result"></div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-title">DNS Benchmark</div>
+            <div class="tool-desc">Compare DNS server response times</div>
+            <div class="tool-row"><button onclick="runDnsBenchmark()">Run Benchmark</button></div>
+            <div id="tool-dns-result" class="tool-result"></div>
+          </div>
+          <div class="tool-card">
+            <div class="tool-title">Wi-Fi Analyzer</div>
+            <div class="tool-desc">Signal strength, channel overlap, and interference</div>
+            <div class="tool-row"><button onclick="runWifiScan()">Scan Networks</button></div>
+            <div id="tool-wifi-result" class="tool-result"></div>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
   <div id="sidebar-right">
     <div id="sidebar-right-resize"></div>
+    <div class="sb-section" data-id="ping">
+      <div class="section-title">Ping Monitor</div>
+      <div class="lookup-row"><input id="ping-input" placeholder="Host to ping..."/><button onclick="pingHost()">Ping</button></div>
+      <div id="st-ping-results"></div>
+    </div>
     <div class="sb-section" data-id="vpn" id="vpn-section" style="display:none"><div class="section-title">VPN</div><div id="st-vpn"></div></div>
     <div class="sb-section" data-id="dns"><div class="section-title">DNS Queries</div><div id="st-dns" style="max-height:150px;overflow-y:auto"></div></div>
-    <div class="sb-section" data-id="states"><div class="section-title">States</div><div id="st-states"></div></div>
     <div class="sb-section" data-id="procs"><div class="section-title">Processes</div><div id="st-procs"></div></div>
     <div class="sb-section" data-id="svcs"><div class="section-title">Bandwidth by Service</div><div id="st-svcs"></div></div>
     <div class="sb-section" data-id="procbw"><div class="section-title">Per-Process Speed</div><div id="st-proc-bw"></div></div>
@@ -260,16 +334,6 @@ select{background:var(--bg);color:var(--text);border:1px solid var(--border);pad
     <div class="sb-section" data-id="lan"><div class="section-title">LAN Devices</div><div id="st-lan"><div id="st-lan-list"></div></div></div>
     <div class="sb-section" data-id="unknown"><div class="section-title">Unknown Apps</div><div id="st-unknown">None</div></div>
     <div class="sb-section" data-id="ifaces"><div class="section-title">Interfaces</div><div id="st-ifaces">Loading...</div></div>
-    <div class="sb-section" data-id="events"><div class="section-title">Events</div><div id="st-events" style="max-height:200px;overflow-y:auto"></div></div>
-    <div class="sb-section" data-id="console" id="console-section">
-      <div class="section-title">Console</div>
-      <div id="console-toolbar">
-        <button onclick="clearConsole()">Clear</button>
-        <button id="btn-trace-all-console" onclick="runTraceAll()">Trace All</button>
-        <span class="trace-progress" id="trace-progress-text"></span>
-      </div>
-      <div id="console-body"></div>
-    </div>
   </div>
   </div>
 </div>
@@ -1233,7 +1297,7 @@ async function runTrace() {
 async function runTraceAll() {
   if (!window.pywebview) return;
   var btn1 = document.getElementById('btn-trace-all');
-  var btn2 = document.getElementById('btn-trace-all-console');
+  var btn2 = document.getElementById('btn-trace-all-bottom');
   var btn = btn1 || btn2;
   if (!btn || btn.disabled) return;
   btn.disabled = true; btn.textContent = 'Starting...';
@@ -1263,7 +1327,7 @@ async function runTraceAll() {
 }
 function resetTraceBtns() {
   var b1 = document.getElementById('btn-trace-all');
-  var b2 = document.getElementById('btn-trace-all-console');
+  var b2 = document.getElementById('btn-trace-all-bottom');
   if (b1) { b1.textContent = 'Trace All'; b1.disabled = false; }
   if (b2) { b2.textContent = 'Trace All'; b2.disabled = false; }
 }
@@ -1615,6 +1679,12 @@ setupResize('sidebar-right-resize', 'col', function(e) {
   document.getElementById('sidebar-right').style.width = w;
   return w;
 }, 'sb_right_w');
+setupResize('bottom-split-resize', 'col', function(e) {
+  var rect = document.getElementById('bottom-split').getBoundingClientRect();
+  var termW = Math.min(Math.max(rect.right - e.clientX, 150), 500);
+  document.getElementById('bottom-terminal').style.width = termW + 'px';
+  return termW + 'px';
+}, 'sb_term_w');
 
 // ---- DRAGGABLE SECTIONS (cross-panel) ----
 
@@ -1701,19 +1771,35 @@ function saveSectionOrder(containerId) {
   if (!container) return;
   var order = Array.from(container.querySelectorAll('.sb-section[data-id]')).map(function(s) { return s.dataset.id; });
   try { localStorage.setItem('ntm_order_' + containerId, JSON.stringify(order)); } catch(e) {}
+  if (window.pywebview) {
+    var allOrders = {};
+    ['sidebar', 'sidebar-right'].forEach(function(cid) {
+      var c = document.getElementById(cid);
+      if (c) allOrders[cid] = Array.from(c.querySelectorAll('.sb-section[data-id]')).map(function(s) { return s.dataset.id; });
+    });
+    try { pywebview.api.save_section_order(JSON.stringify(allOrders)); } catch(e) {}
+  }
 }
 
-function loadSectionOrder(containerId) {
+async function loadSectionOrder(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return;
-  try {
-    var order = JSON.parse(localStorage.getItem('ntm_order_' + containerId));
-    if (!order || !order.length) return;
-    order.forEach(function(id) {
-      var el = container.querySelector('[data-id="' + id + '"]');
-      if (el) container.appendChild(el);
-    });
-  } catch(e) {}
+  var order = null;
+  if (window.pywebview) {
+    try {
+      var raw = await pywebview.api.get_section_order();
+      var all = JSON.parse(raw);
+      order = all[containerId] || null;
+    } catch(e) {}
+  }
+  if (!order) {
+    try { order = JSON.parse(localStorage.getItem('ntm_order_' + containerId)); } catch(e) {}
+  }
+  if (!order || !order.length) return;
+  order.forEach(function(id) {
+    var el = container.querySelector('[data-id="' + id + '"]');
+    if (el) container.appendChild(el);
+  });
 }
 
 // ---- BOOT ----
@@ -1724,8 +1810,8 @@ async function boot() {
   initMap();
   map.invalidateSize();
 
-  loadSectionOrder('sidebar');
-  loadSectionOrder('sidebar-right');
+  await loadSectionOrder('sidebar');
+  await loadSectionOrder('sidebar-right');
   setupDraggableSections();
 
   try {
@@ -1736,6 +1822,9 @@ async function boot() {
     if (panelSizes.sb_left_w) document.getElementById('sidebar').style.width = panelSizes.sb_left_w;
     if (panelSizes.sb_right_w) document.getElementById('sidebar-right').style.width = panelSizes.sb_right_w;
     if (panelSizes.sb_bottom_h) document.getElementById('bottom').style.height = panelSizes.sb_bottom_h;
+    if (panelSizes.sb_term_w) {
+      document.getElementById('bottom-terminal').style.width = panelSizes.sb_term_w;
+    }
   } catch(e) {}
 
   var init = JSON.parse(await pywebview.api.get_initial());
@@ -1812,6 +1901,121 @@ else { window.addEventListener('pywebviewready', boot); }
 
 // ---- CONSOLE ----
 var _logSince = 0;
+
+function switchBottomTab(tab) {
+  document.querySelectorAll('#bottom-tabs .btab').forEach(function(b) { b.classList.toggle('active', b.dataset.tab === tab); });
+  document.getElementById('bottom-monitor').style.display = tab === 'monitor' ? 'flex' : 'none';
+  document.getElementById('bottom-tools').style.display = tab === 'tools' ? 'flex' : 'none';
+  if (window.map) setTimeout(function() { map.invalidateSize(); }, 100);
+}
+
+// ---- TOOLS ----
+
+function fillLanTarget() {
+  var devices = window._lanDevices || [];
+  if (!devices.length) { alert('No LAN devices found. Run LAN scan first.'); return; }
+  var list = devices.map(function(d) { return d.ip + ' (' + (d.hostname || d.mac || '?') + ')'; });
+  var choice = prompt('Pick a device IP:\n' + list.join('\n'));
+  if (choice) document.getElementById('tool-ps-target').value = choice.split(' ')[0].trim();
+}
+
+var _psPoll = null;
+async function runPortScan() {
+  var target = document.getElementById('tool-ps-target').value.trim();
+  if (!target) { alert('Enter a target IP or hostname'); return; }
+  var ports = document.getElementById('tool-ps-ports').value.trim();
+  document.getElementById('tool-ps-result').innerHTML = '<div style="color:var(--text3)">Scanning ' + target + '...</div>';
+  var r = JSON.parse(await pywebview.api.port_scan(target, ports));
+  if (_psPoll) clearInterval(_psPoll);
+  _psPoll = setInterval(async function() {
+    var res = JSON.parse(await pywebview.api.get_port_scan_result());
+    if (!res.scanning) {
+      clearInterval(_psPoll); _psPoll = null;
+      if (res.open.length) {
+        var html = '<div style="color:var(--green);margin-bottom:4px">' + res.open.length + ' open port(s) found:</div><table><tr><th>Port</th><th>Service</th></tr>';
+        var svcs = {20:'FTP Data',21:'FTP',22:'SSH',23:'Telnet',25:'SMTP',53:'DNS',80:'HTTP',110:'POP3',135:'MSRPC',139:'NetBIOS',143:'IMAP',443:'HTTPS',445:'SMB',993:'IMAPS',995:'POP3S',1433:'MSSQL',1521:'Oracle',3306:'MySQL',3389:'RDP',5432:'PostgreSQL',5900:'VNC',8080:'HTTP-Alt',8443:'HTTPS-Alt'};
+        res.open.sort(function(a,b){return a-b}).forEach(function(p) {
+          html += '<tr><td style="color:var(--blue)">' + p + '</td><td>' + (svcs[p] || 'unknown') + '</td></tr>';
+        });
+        document.getElementById('tool-ps-result').innerHTML = html + '</table>';
+      } else {
+        document.getElementById('tool-ps-result').innerHTML = '<div style="color:var(--text3)">No open ports found</div>';
+      }
+    }
+  }, 500);
+}
+
+async function runDeviceDiscovery() {
+  document.getElementById('tool-dd-result').innerHTML = '<div style="color:var(--text3)">Scanning LAN...</div>';
+  await pywebview.api.scan_lan();
+  var poll = setInterval(async function() {
+    var r = JSON.parse(await pywebview.api.get_lan_devices());
+    if (!r.scanning) {
+      clearInterval(poll);
+      window._lanDevices = r.devices;
+      if (r.devices.length) {
+        var html = '<table><tr><th>IP</th><th>MAC</th><th>Hostname</th></tr>';
+        r.devices.forEach(function(d) {
+          html += '<tr><td style="color:var(--blue)">' + d.ip + '</td><td style="color:var(--text3)">' + d.mac + '</td><td>' + (d.hostname || '-') + '</td></tr>';
+        });
+        document.getElementById('tool-dd-result').innerHTML = html + '</table>';
+      } else {
+        document.getElementById('tool-dd-result').innerHTML = '<div style="color:var(--text3)">No devices found</div>';
+      }
+    }
+  }, 1000);
+}
+
+var _dnsPoll = null;
+async function runDnsBenchmark() {
+  document.getElementById('tool-dns-result').innerHTML = '<div style="color:var(--text3)">Running benchmark...</div>';
+  await pywebview.api.dns_benchmark();
+  if (_dnsPoll) clearInterval(_dnsPoll);
+  _dnsPoll = setInterval(async function() {
+    var r = JSON.parse(await pywebview.api.get_dns_benchmark_result());
+    if (!r.running) {
+      clearInterval(_dnsPoll); _dnsPoll = null;
+      if (r.servers.length) {
+        r.servers.sort(function(a,b) { return (a.avg_ms < 0 ? 9999 : a.avg_ms) - (b.avg_ms < 0 ? 9999 : b.avg_ms); });
+        var fastest = r.servers.filter(function(s) { return s.avg_ms > 0; })[0];
+        var maxMs = fastest ? fastest.avg_ms * 1.5 : 100;
+        var html = '<table><tr><th>Server</th><th>IP</th><th>Avg</th><th>OK/Fail</th></tr>';
+        r.servers.forEach(function(s) {
+          var pct = s.avg_ms > 0 ? Math.min(100, s.avg_ms / maxMs * 100) : 0;
+          var col = s.avg_ms < 0 ? 'var(--text3)' : s.avg_ms < 30 ? 'var(--green)' : s.avg_ms < 80 ? 'var(--orange)' : 'var(--red)';
+          html += '<tr><td>' + s.name + '</td><td style="color:var(--text3)">' + s.ip + '</td><td style="color:' + col + '">' + (s.avg_ms > 0 ? s.avg_ms + ' ms' : 'FAIL') + ' <span class="bar" style="width:60px"><span class="bar-fill" style="width:' + pct + '%;background:' + col + '"></span></span></td><td>' + s.ok + '/' + s.fail + '</td></tr>';
+        });
+        document.getElementById('tool-dns-result').innerHTML = html + '</table>';
+      }
+    }
+  }, 500);
+}
+
+var _wifiPoll = null;
+async function runWifiScan() {
+  document.getElementById('tool-wifi-result').innerHTML = '<div style="color:var(--text3)">Scanning networks...</div>';
+  await pywebview.api.wifi_scan();
+  if (_wifiPoll) clearInterval(_wifiPoll);
+  _wifiPoll = setInterval(async function() {
+    var r = JSON.parse(await pywebview.api.get_wifi_result());
+    if (!r.running) {
+      clearInterval(_wifiPoll); _wifiPoll = null;
+      if (r.interfaces.length) {
+        r.interfaces.sort(function(a,b) { return b.signal - a.signal; });
+        var html = '<table><tr><th>SSID</th><th>Signal</th><th>Ch</th><th>BW</th><th>Security</th></tr>';
+        r.interfaces.forEach(function(n) {
+          var col = n.signal > -50 ? 'var(--green)' : n.signal > -70 ? 'var(--orange)' : 'var(--red)';
+          if (n.signal > 0) col = n.signal > 70 ? 'var(--green)' : n.signal > 40 ? 'var(--orange)' : 'var(--red)';
+          var pct = n.signal > 0 ? Math.min(100, n.signal) : Math.max(0, (n.signal + 100));
+          html += '<tr><td style="color:var(--blue)">' + n.ssid + '</td><td style="color:' + col + '">' + n.signal + (n.signal > 0 ? '%' : ' dBm') + ' <span class="bar" style="width:50px"><span class="bar-fill" style="width:' + pct + '%;background:' + col + '"></span></span></td><td>' + n.channel + '</td><td>' + n.bandwidth + '</td><td style="color:var(--text3)">' + (n.security || 'Open') + '</td></tr>';
+        });
+        document.getElementById('tool-wifi-result').innerHTML = html + '</table>';
+      } else {
+        document.getElementById('tool-wifi-result').innerHTML = '<div style="color:var(--text3)">No networks found</div>';
+      }
+    }
+  }, 1000);
+}
 
 function clearConsole() {
   document.getElementById('console-body').innerHTML = '';
